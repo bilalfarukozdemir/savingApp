@@ -181,7 +181,14 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[
+      styles.container, 
+      { 
+        backgroundColor: colors.background,
+        // Explicitly set padding for status bar
+        paddingTop: insets.top,
+      }
+    ]}>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
@@ -189,7 +196,7 @@ export default function HomeScreen() {
       >
         {/* Header with Theme Toggle */}
         <View style={styles.header}>
-    <View>
+          <View>
             <Text style={[styles.greeting, { color: colors.text }]}>Merhaba,</Text>
             <Text style={[styles.userName, { color: colors.text }]}>Kullanıcı</Text>
           </View>
@@ -699,7 +706,7 @@ export default function HomeScreen() {
               <Text style={styles.submitButtonText}>Güncelle</Text>
             </TouchableOpacity>
           </View>
-    </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );

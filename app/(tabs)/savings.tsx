@@ -366,10 +366,20 @@ export default function TabTwoScreen() {
   };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView 
-        style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top }]}
+        style={[
+          styles.container, 
+          { 
+            backgroundColor: colors.background,
+          }
+        ]}
+        contentContainerStyle={[
+          styles.contentContainer, 
+          { 
+            paddingTop: insets.top 
+          }
+        ]}
         showsVerticalScrollIndicator={false}
       >      
         {/* Toplam Tasarruf Özeti */}
