@@ -12,6 +12,7 @@ import { ExpenseOverview } from '@/components/dashboard/ExpenseOverview';
 import { TransactionsOverview } from '@/components/dashboard/TransactionsOverview';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useLocalSearchParams } from 'expo-router';
+import { useTheme } from '@/context/ThemeContext';
 
 // Ekran genişliğini al
 const { width: screenWidth } = Dimensions.get('window');
@@ -29,9 +30,9 @@ const recentTransactions = [
 ];
 
 export default function HomeScreen() {
-  const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const colors = Colors[colorScheme ?? 'light'];
+  const { theme, isDark, toggleTheme } = useTheme();
+  const colors = Colors[theme];
   const { 
     userProfile, 
     financialState, 
@@ -44,9 +45,6 @@ export default function HomeScreen() {
   
   // URL parametrelerini al
   const { action } = useLocalSearchParams<{ action?: string }>();
-  
-  // Tema değiştirme state'i
-  const [isDarkMode, setIsDarkMode] = useState(colorScheme === 'dark');
   
   // Modal state'leri - expenseModalVisible artık FinanceContext'ten geliyor
   const [goalModalVisible, setGoalModalVisible] = useState(false);
@@ -165,12 +163,6 @@ export default function HomeScreen() {
     };
   });
   
-  // Tema değiştirme fonksiyonu
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-    // Gerçek uygulamada burada tema değiştirme işlemi yapılır
-  };
-  
   // URL parametreleri için effect
   useEffect(() => {
     if (action === 'newExpense') {
@@ -202,9 +194,6 @@ export default function HomeScreen() {
         
         // Bildirim göster
         Alert.alert('Başarılı', 'Harcama başarıyla eklendi!');
-        
-        // Yeni harcamayı log'a yaz
-        console.log('Yeni harcama eklendi:', newExpense);
       }
     } else {
       // Hata bildirimi
@@ -215,31 +204,31 @@ export default function HomeScreen() {
   // Tasarruf hedefi güncelleme fonksiyonu
   const updateSavingsGoal = () => {
     // Gerçek uygulamada burada tasarruf hedefi güncelleme işlemi yapılır
-    console.log('Tasarruf hedefi güncellendi:', savingsGoalAmount);
     setGoalModalVisible(false);
     setSavingsGoalAmount('');
   };
 
   // Bakiye ekleme fonksiyonu
-  const handleAddBalance = () => {
-    if (balanceAmount) {
+  const addBalance = () => {
+    if (balanceAmount && parseFloat(balanceAmount) > 0) {
       const amount = parseFloat(balanceAmount);
-      if (!isNaN(amount) && amount > 0) {
-        // FinanceContext'teki addToBalance fonksiyonunu çağır
-        const result = addToBalance(amount, balanceDescription);
+      const description = balanceDescription || 'Bakiye eklendi';
+      
+      const success = addToBalance(amount, description);
+      
+      if (success) {
+        setBalanceAmount('');
+        setBalanceDescription('');
+        setBalanceModalVisible(false);
         
-        if (result) {
-          console.log('Bakiyeye para başarıyla eklendi:', amount);
-        } else {
-          console.error('Bakiyeye para eklenirken bir hata oluştu');
-        }
+        // Bildirim göster
+        Alert.alert('Başarılı', 'Bakiyeye para başarıyla eklendi!');
+      } else {
+        Alert.alert('Hata', 'Bakiye eklenirken bir hata oluştu!');
       }
+    } else {
+      Alert.alert('Hata', 'Lütfen geçerli bir miktar girin!');
     }
-    
-    // Modal'ı kapat ve formları temizle
-    setBalanceModalVisible(false);
-    setBalanceAmount('');
-    setBalanceDescription('');
   };
 
   // Modal açma fonksiyonları
@@ -248,12 +237,10 @@ export default function HomeScreen() {
   };
 
   const openGoalModal = () => {
-    console.log('Hedef modalı açılıyor');
     setGoalModalVisible(true);
   };
   
   const openBalanceModal = () => {
-    console.log('Bakiye modalı açılıyor');
     setBalanceModalVisible(true);
   };
 
@@ -284,13 +271,13 @@ export default function HomeScreen() {
           
           <View style={styles.themeToggle}>
             <Text style={{ color: colors.text, marginRight: 8 }}>
-              {isDarkMode ? '🌙' : '☀️'}
+              {isDark ? '🌙' : '☀️'}
             </Text>
             <Switch
-              value={isDarkMode}
+              value={isDark}
               onValueChange={toggleTheme}
               trackColor={{ false: '#767577', true: colors.primary + '80' }}
-              thumbColor={isDarkMode ? colors.primary : '#f4f3f4'}
+              thumbColor={isDark ? colors.primary : '#f4f3f4'}
             />
           </View>
         </View>
@@ -423,51 +410,21 @@ export default function HomeScreen() {
         )}
         
         {/* Hedef Güncelleme Modalı */}
-        {goalModalVisible && (
-          <View style={{
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            zIndex: 9999,
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}>
-            <TouchableOpacity
-              style={{
-                position: 'absolute',
-                top: 0,
-                bottom: 0,
-                left: 0,
-                right: 0,
-              }}
-              activeOpacity={1}
-              onPress={() => setGoalModalVisible(false)}
-            />
-            <View style={{
-              width: '100%',
-              backgroundColor: colors.background,
-              borderRadius: 20,
-              padding: 24,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 5 },
-              shadowOpacity: 0.3,
-              shadowRadius: 12,
-              elevation: 15,
-              maxWidth: 450,
-            }}>
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={goalModalVisible}
+          onRequestClose={() => setGoalModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>Tasarruf Hedefi Güncelle</Text>
                 <TouchableOpacity 
-                  onPress={() => {
-                    console.log('Hedef modal kapatma butonuna tıklandı');
-                    setGoalModalVisible(false);
-                  }}
+                  style={[styles.modalCloseButton, { backgroundColor: colors.backgroundSecondary }]}
+                  onPress={() => setGoalModalVisible(false)}
                 >
-                  <IconSymbol name="xmark.circle.fill" size={24} color={colors.icon} />
+                  <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>İptal</Text>
                 </TouchableOpacity>
               </View>
               
@@ -483,65 +440,32 @@ export default function HomeScreen() {
                 />
               </View>
               
-              <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: colors.primary }]}
-                onPress={() => {
-                  console.log('Güncelle butonuna tıklandı');
-                  updateSavingsGoal();
-                }}
+              <TouchableOpacity 
+                style={[styles.modalActionButton, { backgroundColor: colors.primary }]}
+                onPress={updateSavingsGoal}
               >
-                <Text style={styles.submitButtonText}>Güncelle</Text>
+                <Text style={styles.modalActionButtonText}>Güncelle</Text>
               </TouchableOpacity>
             </View>
           </View>
-        )}
+        </Modal>
         
         {/* Bakiye Ekleme Modalı */}
-        {balanceModalVisible && (
-          <View style={{
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            zIndex: 9999,
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}>
-            <TouchableOpacity
-              style={{
-                position: 'absolute',
-                top: 0,
-                bottom: 0,
-                left: 0,
-                right: 0,
-              }}
-              activeOpacity={1}
-              onPress={() => setBalanceModalVisible(false)}
-            />
-            <View style={{
-              width: '100%',
-              backgroundColor: colors.background,
-              borderRadius: 20,
-              padding: 24,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 5 },
-              shadowOpacity: 0.3,
-              shadowRadius: 12,
-              elevation: 15,
-              maxWidth: 450,
-            }}>
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={balanceModalVisible}
+          onRequestClose={() => setBalanceModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>Bakiye Ekle</Text>
                 <TouchableOpacity 
-                  onPress={() => {
-                    console.log('Modal kapatma butonuna tıklandı');
-                    setBalanceModalVisible(false);
-                  }}
+                  style={[styles.modalCloseButton, { backgroundColor: colors.backgroundSecondary }]}
+                  onPress={() => setBalanceModalVisible(false)}
                 >
-                  <IconSymbol name="xmark.circle.fill" size={24} color={colors.icon} />
+                  <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>İptal</Text>
                 </TouchableOpacity>
               </View>
               
@@ -570,13 +494,13 @@ export default function HomeScreen() {
               
               <TouchableOpacity
                 style={[styles.submitButton, { backgroundColor: colors.primary }]}
-                onPress={handleAddBalance}
+                onPress={addBalance}
               >
                 <Text style={styles.submitButtonText}>Ekle</Text>
               </TouchableOpacity>
             </View>
           </View>
-        )}
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -1110,6 +1034,26 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalCloseButton: {
+    width: '48%',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalActionButton: {
+    width: '48%',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  modalActionButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
   },

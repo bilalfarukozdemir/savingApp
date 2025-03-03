@@ -262,8 +262,6 @@ export default function TabTwoScreen() {
 
   // Yeni hedef ekleme
   const addNewGoal = () => {
-    console.log('addNewGoal çağrıldı');
-    
     if (!validateForm()) {
       return;
     }
@@ -285,12 +283,9 @@ export default function TabTwoScreen() {
       deductFromBalance: currentAmount > 0 ? deductFromBalance : false,
     };
     
-    console.log('Yeni hedef oluşturuluyor:', newGoal);
-    
     const result = addSavingsGoal(newGoal);
     
     if (result) {
-      console.log('Hedef başarıyla eklendi:', result);
       // Formu temizle
       resetForm();
       // Bottom sheet'i kapat
@@ -299,7 +294,6 @@ export default function TabTwoScreen() {
       // Bildirim göster
       Alert.alert('Başarılı', 'Tasarruf hedefi başarıyla eklendi!');
     } else {
-      console.error('Hedef eklenirken bir hata oluştu');
       Alert.alert('Hata', 'Tasarruf hedefi eklenirken bir hata oluştu. Lütfen tekrar deneyin.');
     }
   };
@@ -327,62 +321,52 @@ export default function TabTwoScreen() {
   
   // Para ekleme/çıkarma işlemini gerçekleştir
   const processFundAction = () => {
-    console.log('processFundAction çağrıldı, seçili hedef ID:', selectedGoalId);
-    
     if (!selectedGoalId) {
-      console.error('Hata: Seçili bir hedef ID yok');
       Alert.alert('Hata', 'Lütfen bir tasarruf hedefi seçin.');
       return;
     }
     
     // Seçili hedefin var olduğunu kontrol et
     const selectedGoal = savingsGoals.find(g => g.id === selectedGoalId);
+    
     if (!selectedGoal) {
-      console.error('Hata: Seçili ID ile eşleşen hedef bulunamadı:', selectedGoalId);
-      console.log('Mevcut hedefler:', savingsGoals.map(g => ({ id: g.id, name: g.name })));
       Alert.alert('Hata', 'Seçilen tasarruf hedefi bulunamadı.');
       return;
     }
     
     const amount = parseFloat(fundAmount);
-    
-    console.log('İşlem başlatılıyor:', { 
-      isAddingFunds,
-      amount,
-      selectedGoalId,
-      selectedGoalName: selectedGoal.name
-    });
-    
     if (isNaN(amount) || amount <= 0) {
-      console.log('Hata: Miktar geçersiz', amount);
       Alert.alert('Hata', 'Lütfen geçerli bir miktar girin.');
-      return; // Miktar geçersizse işlem yapma
+      return;
     }
     
-    // İşlemi gerçekleştir
     let success = false;
+    
     if (isAddingFunds) {
-      console.log('Para ekleme işlemi başlatılıyor');
       success = addFundsToGoal(selectedGoalId, amount, `${selectedGoal.name} hedefine para ekleme`);
-      console.log('Para ekleme işlemi sonucu:', success);
     } else {
-      console.log('Para çekme işlemi başlatılıyor');
       success = withdrawFundsFromGoal(selectedGoalId, amount, `${selectedGoal.name} hedefinden para çekme`);
-      console.log('Para çekme işlemi sonucu:', success);
     }
     
     if (success) {
-      // İşlem başarılıysa bottom sheet'i kapat
-      fundBottomSheetRef.current?.close();
+      // İşlem başarılı oldu, form alanlarını temizle
       setFundAmount('');
       setSelectedGoalId(null);
       setSelectedGoalName('');
-      Alert.alert('Başarılı', isAddingFunds ? 'Para başarıyla eklendi.' : 'Para başarıyla çekildi.');
+      
+      // Modal'ı kapat
+      fundBottomSheetRef.current?.close();
+      
+      // Kullanıcıya bildir
+      Alert.alert(
+        'Başarılı', 
+        isAddingFunds ? 'Para başarıyla eklendi.' : 'Para başarıyla çekildi.'
+      );
     } else {
-      console.log('İşlem başarısız oldu');
-      Alert.alert('Hata', isAddingFunds ? 
-        'Para eklenirken bir hata oluştu. Lütfen tekrar deneyin.' : 
-        'Para çekilirken bir hata oluştu. Lütfen tekrar deneyin.');
+      Alert.alert(
+        'İşlem Başarısız', 
+        isAddingFunds ? 'Para eklenirken bir hata oluştu. Lütfen tekrar deneyin.' : 'Para çekilirken bir hata oluştu. Hedefinizdeki miktar yeterli olmayabilir.'
+      );
     }
   };
 

@@ -206,16 +206,11 @@ export class ExpenseService {
    */
   addToBalance(amount: number, description: string = "Bakiye değişikliği"): boolean {
     try {
-      // Bakiyeyi negatife düşürmemek için kontrol
-      if (amount < 0 && this.financialState.currentBalance + amount < 0) {
-        throw new Error('Bakiye negatif olamaz');
-      }
-      
-      // Finansal durumu güncelle
+      // Bakiyeyi güncelle
       this.financialState.currentBalance += amount;
       this.financialState.lastUpdated = new Date();
       
-      // İşlem ekle
+      // İşlem tipini belirle
       const transactionType = amount >= 0 ? 'income' : 'expense';
       const category = amount >= 0 ? 'Gelir' : 'Tasarruf';
       
@@ -227,8 +222,6 @@ export class ExpenseService {
         description,
         date: new Date()
       });
-      
-      console.log(`ExpenseService - Bakiye güncellendi. Miktar: ${amount}, Yeni bakiye: ${this.financialState.currentBalance}`);
       
       return true;
     } catch (error) {
@@ -275,13 +268,6 @@ export class ExpenseService {
       
       // Finansal durumu güncelle
       this.financialState.lastUpdated = new Date();
-      
-      console.log(`ExpenseService - ${transaction.type} işlemi eklendi:`, {
-        type: transaction.type,
-        amount: transaction.amount,
-        category: transaction.category,
-        currentBalance: this.financialState.currentBalance
-      });
       
       return true;
     } catch (error) {

@@ -45,15 +45,8 @@ export class FinanceManager {
    */
   private syncFinancialState(): void {
     try {
-      console.log('FinanceManager - Senkronizasyon başlıyor...');
-      
       // ExpenseService'den mevcut finansal durumu al
       const expenseState = this.expenseService.getFinancialState();
-      console.log('FinanceManager - ExpenseService finansal durumu:', {
-        currentBalance: expenseState.currentBalance,
-        totalExpenses: expenseState.totalExpenses,
-        totalSavings: expenseState.totalSavings
-      });
       
       // SavingsService'den tasarruf bilgilerini al
       const savingsInfo = this.savingsService.getSavingsInfo();
@@ -64,14 +57,6 @@ export class FinanceManager {
       
       // Güncellenmiş durumu ExpenseService'e geri ver
       this.expenseService.updateFinancialState(expenseState);
-      
-      console.log('FinanceManager - ExpenseService güncellendi:', {
-        currentBalance: expenseState.currentBalance,
-        totalExpenses: expenseState.totalExpenses,
-        totalSavings: expenseState.totalSavings
-      });
-      
-      console.log('FinanceManager - Senkronizasyon tamamlandı');
     } catch (error) {
       console.error('Finansal durum senkronizasyonu hatası:', error);
     }
@@ -424,16 +409,15 @@ export class FinanceManager {
    * Finansal durumu günceller
    */
   updateFinancialState(newState: FinancialState): void {
-    console.log('FinanceManager - updateFinancialState çağrıldı:', {
-      newBalance: newState.currentBalance,
-      newTotalExpenses: newState.totalExpenses,
-      newTotalSavings: newState.totalSavings
-    });
-    
-    // ExpenseService'in updateFinancialState metodunu kullanarak finansal durumu güncelliyoruz
-    this.expenseService.updateFinancialState(newState);
-    
-    console.log('FinanceManager - updateFinancialState tamamlandı');
+    try {
+      // ExpenseService'i güncelle
+      this.expenseService.updateFinancialState(newState);
+      
+      // Servisleri senkronize et
+      this.syncFinancialState();
+    } catch (error) {
+      console.error('Finansal durum güncelleme hatası:', error);
+    }
   }
   
   /**
@@ -441,23 +425,22 @@ export class FinanceManager {
    * Bu metod, SavingsService'ten gelen işlemleri de işleyebilir
    */
   handleTransaction(transaction: Transaction): boolean {
-    console.log('FinanceManager - İşlem işleniyor:', {
-      type: transaction.type,
-      amount: transaction.amount,
-      category: transaction.category
-    });
-    
-    // ExpenseService'e işlemi gönder
-    const result = this.expenseService.handleTransaction(transaction);
-    
-    // İşlemden sonra finansal durumu senkronize et
-    if (result) {
-      this.syncFinancialState();
-      console.log('FinanceManager - İşlem başarıyla kaydedildi ve senkronize edildi');
-    } else {
-      console.error('FinanceManager - İşlem kaydedilemedi');
+    try {
+      // İşlemi kaydet
+      const success = this.expenseService.handleTransaction(transaction);
+      
+      if (success) {
+        // Servisleri senkronize et
+        this.syncFinancialState();
+        
+        // İşlem başarıyla kaydedildi ve senkronize edildi
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('İşlem işleme hatası:', error);
+      return false;
     }
-    
-    return result;
   }
 } 

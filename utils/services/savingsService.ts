@@ -1,5 +1,6 @@
 import { SavingsGoal, Transaction, FinancialState } from '../models/types';
 import { generateUniqueId, calculateGoalProgress, calculateRemainingDays } from '../models/utils';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * SavingsService - Tasarruf hedeflerini yöneten servis
@@ -110,7 +111,7 @@ export class SavingsService {
    * Tasarruf hedefine para ekler
    * Yeni sürümde FinanceManager'a yönlendirir
    */
-  addFundsToGoal(goalId: string, amount: number, description: string = ''): boolean {
+  addFundsToGoal(goalId: string, amount: number, description?: string): boolean {
     try {
       const goalIndex = this.goals.findIndex(g => g.id === goalId);
       
@@ -144,9 +145,6 @@ export class SavingsService {
       // İşlemi kaydet
       this.addTransaction(transaction);
       
-      // Log
-      console.log('SavingsService - Expense işlemi kaydedildi:', transaction);
-      
       return true;
     } catch (error) {
       console.error('Hedefe para eklerken hata:', error);
@@ -158,7 +156,7 @@ export class SavingsService {
    * Tasarruf hedefinden para çeker
    * Yeni sürümde FinanceManager'a yönlendirir
    */
-  withdrawFundsFromGoal(goalId: string, amount: number, description: string = ''): boolean {
+  withdrawFundsFromGoal(goalId: string, amount: number, description?: string): boolean {
     try {
       const goalIndex = this.goals.findIndex(g => g.id === goalId);
       
@@ -192,9 +190,6 @@ export class SavingsService {
       
       // İşlemi kaydet
       this.addTransaction(transaction);
-      
-      // Log
-      console.log('SavingsService - Income işlemi kaydedildi:', transaction);
       
       return true;
     } catch (error) {
@@ -298,5 +293,65 @@ export class SavingsService {
       totalSavings: this.getTotalSavings(),
       goals: [...this.goals]
     };
+  }
+
+  private recordExpenseTransaction(
+    goalId: string, 
+    amount: number, 
+    transactionType: TransactionType,
+    description: string = 'Para çekildi'
+  ): Transaction | null {
+    try {
+      // Güncel timestamp oluştur
+      const timestamp = new Date();
+      
+      // Transaction nesnesi oluştur
+      const transaction: Transaction = {
+        id: uuidv4(),
+        goalId,
+        type: transactionType,
+        amount,
+        description,
+        timestamp,
+      };
+      
+      // Transaction'ı kaydet
+      this.transactions.push(transaction);
+      
+      return transaction;
+    } catch (error) {
+      console.error('Transaction kayıt hatası:', error);
+      return null;
+    }
+  }
+  
+  private recordIncomeTransaction(
+    goalId: string, 
+    amount: number, 
+    transactionType: TransactionType,
+    description: string = 'Para eklendi'
+  ): Transaction | null {
+    try {
+      // Güncel timestamp oluştur
+      const timestamp = new Date();
+      
+      // Transaction nesnesi oluştur
+      const transaction: Transaction = {
+        id: uuidv4(),
+        goalId,
+        type: transactionType,
+        amount,
+        description,
+        timestamp,
+      };
+      
+      // Transaction'ı kaydet
+      this.transactions.push(transaction);
+      
+      return transaction;
+    } catch (error) {
+      console.error('Transaction kayıt hatası:', error);
+      return null;
+    }
   }
 } 

@@ -1,4 +1,4 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -10,16 +10,17 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { FinanceProvider } from '@/context/FinanceContext';
 import { ErrorMessage } from '@/components/ErrorMessage';
+import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 // Layout navigator
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  const { isDark } = useTheme();
   
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <NavigationThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
       <Stack initialRouteName="index">
         {/* Ana sayfa index.tsx'te yönlendirme yapılacak */}
         <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -32,12 +33,11 @@ function RootLayoutNav() {
         />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
-    </ThemeProvider>
+    </NavigationThemeProvider>
   );
 }
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
@@ -54,11 +54,13 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <FinanceProvider>
-        <RootLayoutNav />
-        <StatusBar style="auto" />
-        <ErrorMessage />
-      </FinanceProvider>
+      <ThemeProvider>
+        <FinanceProvider>
+          <RootLayoutNav />
+          <StatusBar style="auto" />
+          <ErrorMessage />
+        </FinanceProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
