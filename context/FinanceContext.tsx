@@ -65,6 +65,7 @@ interface FinanceContextType {
   
   // İşlem işlemleri
   undoTransaction: (transactionId: string) => boolean;
+  getGoalTransactions: (goalId: string) => Transaction[];
   
   // Özet bilgiler
   getFinancialSummary: () => {
@@ -542,6 +543,23 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
   
+  // İşlemi Geri Al
+  const getGoalTransactions = (goalId: string): Transaction[] => {
+    clearError();
+    
+    if (!goalId) {
+      setError("Geçerli bir hedef IDsi belirtilmedi");
+      return [];
+    }
+    
+    try {
+      return financeManager.getGoalTransactions(goalId);
+    } catch (err) {
+      setError("İşlem işlemleri alınırken bir hata oluştu");
+      return [];
+    }
+  };
+  
   // Context değerini tanımla
   const value: FinanceContextType = {
     financialState,
@@ -562,6 +580,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     withdrawFundsFromGoal,
     calculateGoalProgress,
     undoTransaction,
+    getGoalTransactions,
     getFinancialSummary,
     calculateRemainingAmount,
     calculateEstimatedTime,

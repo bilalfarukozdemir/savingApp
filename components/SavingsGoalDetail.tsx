@@ -5,6 +5,7 @@ import { formatCurrency, formatDate } from '@/utils';
 import { IconSymbol } from './ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { Transaction } from '@/utils/models/types';
 
 interface SavingsGoalDetailProps {
   goalId: string;
@@ -165,7 +166,7 @@ const SavingsGoalDetail: React.FC<SavingsGoalDetailProps> = ({
         <View style={[styles.sectionContainer, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Son İşlemler</Text>
           
-          {transactions.slice(0, 5).map(transaction => (
+          {transactions.slice(0, 5).map((transaction: Transaction) => (
             <View key={transaction.id} style={styles.transactionItem}>
               <View style={styles.transactionLeft}>
                 <Text style={[styles.transactionDate, { color: colors.text }]}>
