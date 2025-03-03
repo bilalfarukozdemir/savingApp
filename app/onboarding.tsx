@@ -49,6 +49,47 @@ export default function OnboardingScreen() {
   const [incomeError, setIncomeError] = useState('');
   const [dayError, setDayError] = useState('');
   
+  // Para birimi formatı için yardımcı fonksiyon
+  const formatCurrency = (value: string) => {
+    if (!value) return '';
+    
+    // Sadece sayıları al
+    const numericValue = value.replace(/[^0-9]/g, '');
+    
+    // Sayıyı float'a çevir
+    const floatValue = parseFloat(numericValue);
+    
+    if (isNaN(floatValue)) {
+      return '';
+    }
+    
+    // Türk Lirası formatında göster
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: 'TRY',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(floatValue);
+  };
+  
+  // Yaş değiştiğinde çalışacak fonksiyon
+  const handleAgeChange = (text: string) => {
+    // Sadece rakamları kabul et
+    const numericValue = text.replace(/[^0-9]/g, '');
+    
+    // Yaşın 999'dan büyük olamayacağını varsayalım
+    if (numericValue.length <= 3) {
+      setAge(numericValue);
+    }
+  };
+  
+  // Gelir değiştiğinde çalışacak fonksiyon
+  const handleIncomeChange = (text: string) => {
+    // Önce format temizlenir, sonra yeniden formatlanır
+    const numericValue = text.replace(/[^0-9]/g, '');
+    setMonthlyIncome(numericValue);
+  };
+  
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -268,24 +309,28 @@ export default function OnboardingScreen() {
             <Text style={[styles.stepDescription, { color: colors.text }]}>
               Yaşınızı öğrenmek, finansal tavsiyelerimizi kişiselleştirmemize yardımcı olur.
             </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { 
-                  borderColor: ageError ? 'red' : colors.border,
-                  color: colors.text,
-                  backgroundColor: colors.card
-                }
-              ]}
-              placeholder="Yaşınızı girin"
-              placeholderTextColor={colors.textMuted}
-              value={age}
-              onChangeText={setAge}
-              keyboardType="number-pad"
-              maxLength={3}
-              autoFocus
-            />
+            
+            <View style={styles.inputContainer}>
+              <View style={[styles.ageInputWrapper, { backgroundColor: colors.card, borderColor: ageError ? 'red' : colors.border }]}>
+                <TextInput
+                  style={[styles.ageInput, { color: colors.text }]}
+                  placeholder="Yaş"
+                  placeholderTextColor={colors.textMuted}
+                  value={age}
+                  onChangeText={handleAgeChange}
+                  keyboardType="numeric"
+                  maxLength={3}
+                  autoFocus
+                />
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>yıl</Text>
+              </View>
+            </View>
+            
             {ageError ? <Text style={styles.errorText}>{ageError}</Text> : null}
+            
+            <Text style={[styles.inputInfoText, { color: colors.textMuted }]}>
+              Finansal planlama için yaş önemli bir faktördür. Yaşınıza uygun tasarruf önerileri sunabilmemiz için bu bilgiye ihtiyacımız var.
+            </Text>
           </Animated.View>
         );
         
@@ -306,23 +351,27 @@ export default function OnboardingScreen() {
             <Text style={[styles.stepDescription, { color: colors.text }]}>
               Daha doğru bütçe önerileri için aylık gelirinizi paylaşın.
             </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { 
-                  borderColor: incomeError ? 'red' : colors.border,
-                  color: colors.text,
-                  backgroundColor: colors.card
-                }
-              ]}
-              placeholder="Aylık gelirinizi girin"
-              placeholderTextColor={colors.textMuted}
-              value={monthlyIncome}
-              onChangeText={setMonthlyIncome}
-              keyboardType="numeric"
-              autoFocus
-            />
+            
+            <View style={styles.inputContainer}>
+              <View style={[styles.currencyInputWrapper, { backgroundColor: colors.card, borderColor: incomeError ? 'red' : colors.border }]}>
+                <Text style={[styles.currencySymbol, { color: colors.text }]}>₺</Text>
+                <TextInput
+                  style={[styles.currencyInput, { color: colors.text }]}
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
+                  value={monthlyIncome ? formatCurrency(monthlyIncome).replace('₺', '').trim() : ''}
+                  onChangeText={handleIncomeChange}
+                  keyboardType="numeric"
+                  autoFocus
+                />
+              </View>
+            </View>
+            
             {incomeError ? <Text style={styles.errorText}>{incomeError}</Text> : null}
+            
+            <Text style={[styles.inputInfoText, { color: colors.textMuted }]}>
+              Geliriniz, aylık bütçe planlaması ve tasarruf hedeflerinizi belirlemek için kullanılacaktır. Bu bilgi gizli tutulacaktır.
+            </Text>
           </Animated.View>
         );
         
@@ -343,24 +392,34 @@ export default function OnboardingScreen() {
             <Text style={[styles.stepDescription, { color: colors.text }]}>
               Gelirinizin hangi gün hesabınıza yatırıldığını belirtin. Bu bilgi, otomatik bakiye güncelleme için kullanılacaktır.
             </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { 
-                  borderColor: dayError ? 'red' : colors.border,
-                  color: colors.text,
-                  backgroundColor: colors.card
-                }
-              ]}
-              placeholder="Ayın kaçında (1-31)"
-              placeholderTextColor={colors.textMuted}
-              value={incomeDay}
-              onChangeText={setIncomeDay}
-              keyboardType="number-pad"
-              maxLength={2}
-              autoFocus
-            />
+            <View style={styles.inputContainer}>
+              <View style={[styles.dayInputWrapper, { backgroundColor: colors.card, borderColor: dayError ? 'red' : colors.border }]}>
+                <TextInput
+                  style={[styles.dayInput, { color: colors.text }]}
+                  placeholder="Gün"
+                  placeholderTextColor={colors.textMuted}
+                  value={incomeDay}
+                  onChangeText={(text) => {
+                    // Sadece rakamları kabul et ve 31'den büyük olamaz
+                    const numericValue = text.replace(/[^0-9]/g, '');
+                    const dayNum = parseInt(numericValue);
+                    if (!numericValue || (dayNum >= 1 && dayNum <= 31)) {
+                      setIncomeDay(numericValue);
+                    }
+                  }}
+                  keyboardType="numeric"
+                  maxLength={2}
+                  autoFocus
+                />
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>her ay</Text>
+              </View>
+            </View>
+            
             {dayError ? <Text style={styles.errorText}>{dayError}</Text> : null}
+            
+            <Text style={[styles.inputInfoText, { color: colors.textMuted }]}>
+              Bu tarihte, aylık geliriniz otomatik olarak bakiyenize eklenecektir. Bu sayede finansal durumunuzu daha kolay takip edebilirsiniz.
+            </Text>
           </Animated.View>
         );
         
@@ -564,6 +623,67 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 20,
     opacity: 0.8,
+  },
+  inputContainer: {
+    marginBottom: 10,
+  },
+  ageInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 55,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    marginBottom: 5,
+  },
+  ageInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  currencyInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 55,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    marginBottom: 5,
+  },
+  currencySymbol: {
+    fontSize: 18,
+    fontWeight: '500',
+    marginRight: 8,
+  },
+  currencyInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  dayInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 55,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    marginBottom: 5,
+  },
+  dayInput: {
+    width: 60,
+    fontSize: 18,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  inputLabel: {
+    fontSize: 16,
+    marginLeft: 10,
+  },
+  inputInfoText: {
+    fontSize: 14,
+    marginTop: 15,
+    fontStyle: 'italic',
+    lineHeight: 20,
   },
   input: {
     width: '100%',
