@@ -6,6 +6,7 @@ import { IconSymbol } from './ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Transaction } from '@/utils/models/types';
+import { EmptyState } from './ui/EmptyState';
 
 interface SavingsGoalDetailProps {
   goalId: string;
@@ -27,6 +28,8 @@ const SavingsGoalDetail: React.FC<SavingsGoalDetailProps> = ({
     calculateRemainingAmount,
     calculateEstimatedTime,
     getGoalTransactions,
+    hasTransactionsData,
+    markDataAsSeen
   } = useFinance();
   
   // Hedef bilgisini al
@@ -53,7 +56,19 @@ const SavingsGoalDetail: React.FC<SavingsGoalDetailProps> = ({
   const estimatedMonths = calculateEstimatedTime(goalId, 500);
   
   // Hedef işlemleri
-  const transactions = getGoalTransactions ? getGoalTransactions(goalId) : [];
+  const transactions = getGoalTransactions(goalId);
+  const showTransactions = transactions.length > 0;
+  
+  // İşlemleri görünür olarak işaretle (kullanıcının işlem eklediği durumda)
+  React.useEffect(() => {
+    const markSeen = async () => {
+      if (transactions.length > 0) {
+        await markDataAsSeen('transactions');
+      }
+    };
+    
+    markSeen();
+  }, [transactions.length, markDataAsSeen]);
   
   // Hedef rengini belirle
   const goalColor = goal.color || '#4C9AFF';
@@ -162,11 +177,11 @@ const SavingsGoalDetail: React.FC<SavingsGoalDetailProps> = ({
       </View>
       
       {/* Son İşlemler */}
-      {transactions && transactions.length > 0 ? (
-        <View style={[styles.sectionContainer, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Son İşlemler</Text>
-          
-          {transactions.slice(0, 5).map((transaction: Transaction) => (
+      <View style={[styles.sectionContainer, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Son İşlemler</Text>
+        
+        {showTransactions && hasTransactionsData() ? (
+          transactions.slice(0, 5).map((transaction: Transaction) => (
             <View key={transaction.id} style={styles.transactionItem}>
               <View style={styles.transactionLeft}>
                 <Text style={[styles.transactionDate, { color: colors.text }]}>
@@ -181,20 +196,22 @@ const SavingsGoalDetail: React.FC<SavingsGoalDetailProps> = ({
                 style={[
                   styles.transactionAmount, 
                   { 
-                    color: transaction.type === 'transfer' && transaction.description?.includes('eklendi')
-                      ? '#4CAF50' // Yeşil (para ekleme)
-                      : '#F44336'  // Kırmızı (para çekme)
+                    color: transaction.type === 'expense' ? '#F44336' : '#4CAF50' 
                   }
                 ]}
               >
-                {transaction.type === 'transfer' && transaction.description?.includes('eklendi')
-                  ? `+${formatCurrency(transaction.amount)}`
-                  : `-${formatCurrency(transaction.amount)}`}
+                {transaction.type === 'expense' ? '-' : '+'}{formatCurrency(transaction.amount)}
               </Text>
             </View>
-          ))}
-        </View>
-      ) : null}
+          ))
+        ) : (
+          <EmptyState
+            title="Henüz İşlem Yok"
+            message="Bu hedefe para ekleyerek veya hedeften para çekerek işlem oluşturabilirsiniz."
+            icon="swap-horizontal"
+          />
+        )}
+      </View>
     </View>
   );
 };

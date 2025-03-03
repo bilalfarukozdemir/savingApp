@@ -3,6 +3,7 @@ import { generateUniqueId, validateTransactionDate } from '../models/utils';
 
 /**
  * ExpenseService - Harcama işlemlerini yöneten servis
+ * Yeni Mimari: Ana finansal durum kaynağı olarak hizmet verir
  */
 export class ExpenseService {
   private expenses: Expense[] = [];
@@ -63,57 +64,53 @@ export class ExpenseService {
   }
 
   /**
-   * Yeni bir harcama ekler
+   * Harcama ekler
    */
   addExpense(expenseData: Omit<Expense, 'id' | 'date'> & { date?: Date }): Expense | null {
     try {
-      const { amount, category, description } = expenseData;
-      
-      // Validasyon
-      if (amount <= 0) {
-        throw new Error('Harcama tutarı pozitif olmalıdır');
-      }
-      
-      if (!category || category.trim() === '') {
-        throw new Error('Kategori gereklidir');
-      }
-      
-      if (this.financialState.currentBalance < amount) {
-        throw new Error('Yetersiz bakiye');
-      }
-      
       const date = expenseData.date || new Date();
       
       if (!validateTransactionDate(date)) {
-        throw new Error('Geçersiz işlem tarihi');
+        throw new Error('Geçersiz tarih');
       }
       
-      // Yeni harcama oluştur
+      if (expenseData.amount <= 0) {
+        throw new Error('Harcama tutarı pozitif olmalıdır');
+      }
+      
+      // Bakiye kontrolü - negatife düşmemeli
+      if (this.financialState.currentBalance < expenseData.amount) {
+        throw new Error('Yetersiz bakiye');
+      }
+
+      // Yeni harcama nesnesi oluştur
       const newExpense: Expense = {
         id: generateUniqueId(),
-        amount,
-        category,
-        description,
+        amount: expenseData.amount,
+        category: expenseData.category,
+        description: expenseData.description || '',
         date
       };
       
-      // Finansal durumu güncelle
-      this.financialState.currentBalance -= amount;
-      this.financialState.totalExpenses += amount;
-      this.financialState.lastUpdated = new Date();
-      
-      // Harcamayı listesine ekle
+      // Harcamayı listeye ekle
       this.expenses.push(newExpense);
       
-      // İşlem ekle
-      this.addTransaction({
+      // İşlem kaydet
+      const transaction: Transaction = {
         id: generateUniqueId(),
-        amount,
+        amount: expenseData.amount,
         type: 'expense',
-        category,
-        description,
+        category: expenseData.category,
+        description: expenseData.description || '',
         date
-      });
+      };
+      
+      this.addTransaction(transaction);
+      
+      // Finansal durumu güncelle
+      this.financialState.currentBalance -= expenseData.amount;
+      this.financialState.totalExpenses += expenseData.amount;
+      this.financialState.lastUpdated = new Date();
       
       return newExpense;
     } catch (error) {
@@ -173,6 +170,7 @@ export class ExpenseService {
     
     const transaction = this.transactions[transactionIndex];
     
+    // İşlem tipine göre finansal durumu güncelle
     if (transaction.type === 'expense') {
       // Harcama işlemini geri al
       this.financialState.currentBalance += transaction.amount;
@@ -188,6 +186,9 @@ export class ExpenseService {
       if (expenseIndex !== -1) {
         this.expenses.splice(expenseIndex, 1);
       }
+    } else if (transaction.type === 'income') {
+      // Gelir işlemini geri al
+      this.financialState.currentBalance -= transaction.amount;
     }
     
     // İşlemi işlem listesinden kaldır
@@ -197,5 +198,95 @@ export class ExpenseService {
     this.financialState.lastUpdated = new Date();
     
     return true;
+  }
+
+  /**
+   * Bakiyeye para ekler veya çıkarır
+   * Pozitif değer para ekler, negatif değer para çıkarır
+   */
+  addToBalance(amount: number, description: string = "Bakiye değişikliği"): boolean {
+    try {
+      // Bakiyeyi negatife düşürmemek için kontrol
+      if (amount < 0 && this.financialState.currentBalance + amount < 0) {
+        throw new Error('Bakiye negatif olamaz');
+      }
+      
+      // Finansal durumu güncelle
+      this.financialState.currentBalance += amount;
+      this.financialState.lastUpdated = new Date();
+      
+      // İşlem ekle
+      const transactionType = amount >= 0 ? 'income' : 'expense';
+      const category = amount >= 0 ? 'Gelir' : 'Tasarruf';
+      
+      this.addTransaction({
+        id: generateUniqueId(),
+        amount: Math.abs(amount), // İşlem tutarı her zaman pozitif
+        type: transactionType,
+        category: category,
+        description,
+        date: new Date()
+      });
+      
+      console.log(`ExpenseService - Bakiye güncellendi. Miktar: ${amount}, Yeni bakiye: ${this.financialState.currentBalance}`);
+      
+      return true;
+    } catch (error) {
+      console.error('Bakiye güncellenirken hata:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Finansal durumu günceller
+   */
+  updateFinancialState(newState: FinancialState): void {
+    // Önemli: Bakiyenin negatif olmamasını sağla
+    if (newState.currentBalance < 0) {
+      console.error('Uyarı: Negatif bakiye önlendi. Bakiye 0 olarak ayarlandı.');
+      newState.currentBalance = 0;
+    }
+    
+    this.financialState = { ...newState };
+  }
+
+  /**
+   * Yeni bir işlem ekler ve finansal durumu günceller
+   */
+  handleTransaction(transaction: Transaction): boolean {
+    try {
+      // İşlem tipine göre finansal durumu güncelle
+      if (transaction.type === 'expense') {
+        // Harcama işlemi - bakiyeden düş
+        if (this.financialState.currentBalance < transaction.amount) {
+          console.error('Yetersiz bakiye');
+          return false;
+        }
+        
+        this.financialState.currentBalance -= transaction.amount;
+        this.financialState.totalExpenses += transaction.amount;
+      } else if (transaction.type === 'income') {
+        // Gelir işlemi - bakiyeye ekle
+        this.financialState.currentBalance += transaction.amount;
+      }
+      
+      // İşlemi kaydet
+      this.addTransaction(transaction);
+      
+      // Finansal durumu güncelle
+      this.financialState.lastUpdated = new Date();
+      
+      console.log(`ExpenseService - ${transaction.type} işlemi eklendi:`, {
+        type: transaction.type,
+        amount: transaction.amount,
+        category: transaction.category,
+        currentBalance: this.financialState.currentBalance
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('İşlem eklenirken hata:', error);
+      return false;
+    }
   }
 } 

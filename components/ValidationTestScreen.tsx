@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ScrollView } from 'react-native';
 import { useFinance } from '@/context/FinanceContext';
 
+/**
+ * ValidationTestScreen - Finansal işlemlerin validasyonunu test eden ekran
+ * Yeni finansal yönetim yapısına göre güncellenmiştir
+ */
 const ValidationTestScreen: React.FC = () => {
   const { 
     addExpense, 
@@ -11,7 +15,8 @@ const ValidationTestScreen: React.FC = () => {
     calculateEstimatedTime,
     error,
     savingsGoals,
-    financialState
+    financialState,
+    addToBalance
   } = useFinance();
   
   // Harcama testi için state
@@ -22,6 +27,7 @@ const ValidationTestScreen: React.FC = () => {
   // Tasarruf hedefi testi için state
   const [goalName, setGoalName] = useState('Test Hedefi');
   const [goalAmount, setGoalAmount] = useState('1000');
+  const [goalInitialAmount, setGoalInitialAmount] = useState('0');
   
   // Para ekleme/çekme için state
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
@@ -31,41 +37,148 @@ const ValidationTestScreen: React.FC = () => {
   const [monthlyContribution, setMonthlyContribution] = useState('100');
   const [estimatedMonths, setEstimatedMonths] = useState<number | null>(null);
   
+  // Bakiye ekleme testi için state
+  const [balanceAmount, setBalanceAmount] = useState('200');
+  const [balanceDescription, setBalanceDescription] = useState('Test bakiye eklemesi');
+  
+  // Test sonuçları için state
+  const [testResult, setTestResult] = useState<string | null>(null);
+  
   // Test fonksiyonları
   const testAddExpense = () => {
-    // Negatif sayı girerek validasyon hatası oluşturabiliriz
-    addExpense({
-      amount: parseFloat(amount),
+    setTestResult(null);
+    
+    // Geçerli bir sayı mı kontrol et
+    const amountValue = parseFloat(amount);
+    if (isNaN(amountValue)) {
+      setTestResult('Geçersiz miktar değeri');
+      return;
+    }
+    
+    const result = addExpense({
+      amount: amountValue,
       category,
       description
     });
+    
+    if (result) {
+      setTestResult(`Harcama başarıyla eklendi: ${amountValue} TL`);
+    } else {
+      setTestResult('Harcama eklenemedi! Validasyon hatası veya yetersiz bakiye.');
+    }
   };
   
   const testAddGoal = () => {
-    // Hedef tutarı 0 girerek validasyon hatası oluşturabiliriz
-    addSavingsGoal({
+    setTestResult(null);
+    
+    // Geçerli bir sayı mı kontrol et
+    const targetAmount = parseFloat(goalAmount);
+    const initialAmount = parseFloat(goalInitialAmount) || 0;
+    
+    if (isNaN(targetAmount)) {
+      setTestResult('Geçersiz hedef tutarı');
+      return;
+    }
+    
+    const result = addSavingsGoal({
       name: goalName,
-      targetAmount: parseFloat(goalAmount),
+      targetAmount,
+      currentAmount: initialAmount,
       color: '#FF5722'
     });
+    
+    if (result) {
+      setTestResult(`Tasarruf hedefi başarıyla eklendi: ${goalName}`);
+    } else {
+      setTestResult('Tasarruf hedefi eklenemedi! Validasyon hatası.');
+    }
   };
   
   const testAddFunds = () => {
-    if (selectedGoalId) {
-      addFundsToGoal(selectedGoalId, parseFloat(transferAmount), 'Test para ekleme');
+    setTestResult(null);
+    
+    if (!selectedGoalId) {
+      setTestResult('Lütfen bir hedef seçin');
+      return;
+    }
+    
+    const amount = parseFloat(transferAmount);
+    if (isNaN(amount)) {
+      setTestResult('Geçersiz transfer miktarı');
+      return;
+    }
+    
+    const result = addFundsToGoal(selectedGoalId, amount, 'Test para ekleme');
+    
+    if (result) {
+      setTestResult(`${amount} TL başarıyla hedefe eklendi`);
+    } else {
+      setTestResult('Para eklenemedi! Yetersiz bakiye veya validasyon hatası.');
     }
   };
   
   const testWithdrawFunds = () => {
-    if (selectedGoalId) {
-      withdrawFundsFromGoal(selectedGoalId, parseFloat(transferAmount), 'Test para çekme');
+    setTestResult(null);
+    
+    if (!selectedGoalId) {
+      setTestResult('Lütfen bir hedef seçin');
+      return;
+    }
+    
+    const amount = parseFloat(transferAmount);
+    if (isNaN(amount)) {
+      setTestResult('Geçersiz transfer miktarı');
+      return;
+    }
+    
+    const result = withdrawFundsFromGoal(selectedGoalId, amount, 'Test para çekme');
+    
+    if (result) {
+      setTestResult(`${amount} TL başarıyla hedeften çekildi`);
+    } else {
+      setTestResult('Para çekilemedi! Hedefte yeterli tutar bulunmuyor veya validasyon hatası.');
     }
   };
   
   const testEstimatedTime = () => {
-    if (selectedGoalId) {
-      const months = calculateEstimatedTime(selectedGoalId, parseFloat(monthlyContribution));
+    setTestResult(null);
+    
+    if (!selectedGoalId) {
+      setTestResult('Lütfen bir hedef seçin');
+      return;
+    }
+    
+    const contribution = parseFloat(monthlyContribution);
+    if (isNaN(contribution)) {
+      setTestResult('Geçersiz aylık katkı miktarı');
+      return;
+    }
+    
+    try {
+      const months = calculateEstimatedTime(selectedGoalId, contribution);
       setEstimatedMonths(months);
+      setTestResult(`Hedefe ulaşma süresi: ${months} ay`);
+    } catch (error) {
+      setTestResult('Süre hesaplanamadı: ' + String(error));
+    }
+  };
+  
+  // Bakiye ekleme testi
+  const testAddToBalance = () => {
+    setTestResult(null);
+    
+    const amount = parseFloat(balanceAmount);
+    if (isNaN(amount)) {
+      setTestResult('Geçersiz bakiye miktarı');
+      return;
+    }
+    
+    const result = addToBalance(amount, balanceDescription);
+    
+    if (result) {
+      setTestResult(`${amount} TL bakiyeye başarıyla eklendi. Yeni bakiye: ${financialState.currentBalance + amount} TL`);
+    } else {
+      setTestResult('Bakiye güncellenemedi. Validasyon hatası.');
     }
   };
   
@@ -79,8 +192,16 @@ const ValidationTestScreen: React.FC = () => {
         </View>
       )}
       
+      {testResult && (
+        <View style={styles.resultContainer}>
+          <Text style={styles.resultText}>{testResult}</Text>
+        </View>
+      )}
+      
       <View style={styles.infoContainer}>
         <Text style={styles.infoText}>Mevcut Bakiye: {financialState.currentBalance}</Text>
+        <Text style={styles.infoText}>Toplam Harcama: {financialState.totalExpenses}</Text>
+        <Text style={styles.infoText}>Toplam Tasarruf: {financialState.totalSavings}</Text>
       </View>
       
       <View style={styles.section}>
@@ -131,7 +252,37 @@ const ValidationTestScreen: React.FC = () => {
           keyboardType="numeric"
         />
         
+        <TextInput
+          style={styles.input}
+          value={goalInitialAmount}
+          onChangeText={setGoalInitialAmount}
+          placeholder="Başlangıç Miktarı (isteğe bağlı)"
+          keyboardType="numeric"
+        />
+        
         <Button title="Tasarruf Hedefi Ekle" onPress={testAddGoal} />
+      </View>
+      
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Bakiye Ekle Testi</Text>
+        <Text style={styles.hint}>Bakiye ekleyerek finansal durumun güncellendiğini test edebilirsiniz</Text>
+        
+        <TextInput
+          style={styles.input}
+          value={balanceAmount}
+          onChangeText={setBalanceAmount}
+          placeholder="Miktar"
+          keyboardType="numeric"
+        />
+        
+        <TextInput
+          style={styles.input}
+          value={balanceDescription}
+          onChangeText={setBalanceDescription}
+          placeholder="Açıklama"
+        />
+        
+        <Button title="Bakiye Ekle" onPress={testAddToBalance} />
       </View>
       
       <View style={styles.section}>
@@ -265,6 +416,16 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flex: 1,
     marginHorizontal: 4,
+  },
+  resultContainer: {
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 4,
+    marginBottom: 16,
+  },
+  resultText: {
+    color: '#0d47a1',
+    fontWeight: 'bold',
   },
   result: {
     marginTop: 12,

@@ -21,6 +21,7 @@ export interface SavingsGoal {
   color: string;
   targetDate?: Date;
   createdAt: Date;
+  deductFromBalance?: boolean; // Başlangıç tutarının mevcut bakiyeden düşülüp düşülmeyeceği
 }
 
 /**

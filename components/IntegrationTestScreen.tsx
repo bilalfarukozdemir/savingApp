@@ -132,6 +132,7 @@ const IntegrationTestScreen: React.FC = () => {
       const invalidGoal = financeManager.addSavingsGoal({
         name: 'Test Hedefi',
         targetAmount: 0,
+        currentAmount: 0,
         color: '#FF5722'
       });
       
@@ -183,6 +184,105 @@ const IntegrationTestScreen: React.FC = () => {
     } catch (error) {
       console.error('Hata durumları testi hatası:', error);
       addTestResult('Hata Durumları Testi', false, 'Test sırasında beklenmeyen hata: ' + String(error));
+    }
+  };
+  
+  // FinanceManager entegrasyon testi - updateFinancialState
+  const testFinancialStateUpdate = () => {
+    clearTests();
+    
+    try {
+      // Başlangıç finansal durumunu kontrol et
+      const initialState = financeManager.getFinancialState();
+      
+      // Test miktarı
+      const amount = parseFloat(testAmount);
+      
+      if (isNaN(amount)) {
+        addTestResult(
+          'Finansal Durum Güncelleme Testi',
+          false,
+          'Geçerli bir miktar girilmedi'
+        );
+        return;
+      }
+      
+      // Bakiyeye para ekle
+      const success = financeManager.addToBalance(amount, 'Test bakiye eklemesi');
+      
+      // Güncellenmiş finansal durumu kontrol et
+      const updatedState = financeManager.getFinancialState();
+      
+      // Güncelleme başarılı mı?
+      const updateSuccessful = success && 
+        updatedState.currentBalance === initialState.currentBalance + amount;
+      
+      addTestResult(
+        'Finansal Durum Güncelleme',
+        updateSuccessful,
+        updateSuccessful 
+          ? `Bakiye başarıyla güncellendi: ${initialState.currentBalance} -> ${updatedState.currentBalance}` 
+          : 'Bakiye güncellenemedi'
+      );
+      
+      // Tasarruf hedefi ekleyerek finansal durumu test et
+      try {
+        // İlk durumu al
+        const beforeSavingsState = financeManager.getFinancialState();
+        
+        // Yeni hedef ekle
+        const savingsGoalData = {
+          name: 'Test Finansal Durum Hedefi',
+          targetAmount: amount * 2,
+          currentAmount: 0, // Başlangıçta 0, sonra para ekleyeceğiz
+          color: '#FF5722'
+        };
+        
+        // Hedefi ekle
+        const goalResult = financeManager.addSavingsGoal(savingsGoalData);
+        
+        if (!goalResult) {
+          addTestResult(
+            'Tasarruf Hedefi Ekleme',
+            false,
+            'Tasarruf hedefi eklenemedi'
+          );
+          return;
+        }
+        
+        // Hedef ID'sini al
+        const goalId = goalResult.id;
+        
+        // Hedefe para ekle - Yeni sistem para ekleme işlemi
+        const addFundsResult = financeManager.addFundsToGoal(goalId, amount / 2, 'Test para ekleme');
+        
+        // Son durumu al
+        const afterSavingsState = financeManager.getFinancialState();
+        
+        // Doğrulama - Yeni sisteme göre kontroller
+        const savingsSuccess = 
+          addFundsResult && 
+          afterSavingsState.totalSavings === beforeSavingsState.totalSavings + (amount / 2) &&
+          afterSavingsState.currentBalance === beforeSavingsState.currentBalance - (amount / 2);
+        
+        addTestResult(
+          'Tasarruf Hedefi ve Finansal Durum Güncelleme',
+          savingsSuccess,
+          savingsSuccess 
+            ? `Para aktarımı ve bakiye başarıyla güncellendi: Tasarruf ${beforeSavingsState.totalSavings} -> ${afterSavingsState.totalSavings}, Bakiye: ${beforeSavingsState.currentBalance} -> ${afterSavingsState.currentBalance}` 
+            : 'Tasarruf hedefine para aktarımında sorun oluştu'
+        );
+      } catch (e) {
+        addTestResult(
+          'Tasarruf Hedefi ve Finansal Durum Güncelleme',
+          false,
+          'Hata: ' + String(e)
+        );
+      }
+      
+    } catch (error) {
+      console.error('Finansal durum güncelleme testi hatası:', error);
+      addTestResult('Finansal Durum Güncelleme Testi', false, 'Test sırasında beklenmeyen hata: ' + String(error));
     }
   };
   
@@ -249,6 +349,7 @@ const IntegrationTestScreen: React.FC = () => {
         <Button title="Validasyon Testi" onPress={testValidation} />
         <Button title="Hesaplama Testi" onPress={testCalculations} />
         <Button title="Entegrasyon Testi" onPress={testManagerIntegration} />
+        <Button title="Finansal Durum Güncelleme Testi" onPress={testFinancialStateUpdate} />
         <Button title="Hata Durumları Testi" onPress={testErrorCases} />
         <Button title="Performans Testi" onPress={testPerformance} />
         <Button title="Testleri Temizle" onPress={clearTests} color="#777" />

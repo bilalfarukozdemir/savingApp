@@ -44,7 +44,7 @@ export class CalculationService {
   /**
    * Tasarruf hedefi verilerini validate eder
    */
-  validateSavingsGoalData(goalData: Omit<SavingsGoal, 'id' | 'currentAmount' | 'createdAt'>): ValidationResult {
+  validateSavingsGoalData(goalData: Omit<SavingsGoal, 'id' | 'createdAt'>): ValidationResult {
     return validateSavingsGoal(goalData);
   }
 

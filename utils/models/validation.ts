@@ -34,6 +34,16 @@ export const validatePositiveNumber = (value: number, fieldName: string): Valida
 };
 
 /**
+ * Sayının negatif olup olmadığını kontrol eder (sıfır ve pozitif değerler geçerli)
+ */
+export const validateNonNegativeNumber = (value: number, fieldName: string): ValidationResult => {
+  if (value < 0) {
+    return invalidResult(`${fieldName} negatif olamaz`);
+  }
+  return validResult();
+};
+
+/**
  * Girilen tutar için kullanılabilir bakiye olup olmadığını kontrol eder
  */
 export const validateSufficientBalance = (amount: number, currentBalance: number): ValidationResult => {
@@ -114,11 +124,12 @@ export const validateExpense = (
     return amountValidation;
   }
   
-  // Yeterli bakiye kontrolü
-  const balanceValidation = validateSufficientBalance(expenseData.amount, currentBalance);
-  if (!balanceValidation.isValid) {
-    return balanceValidation;
-  }
+  // Bakiye kontrolünü devre dışı bırakıyoruz
+  // Kullanıcı isteğine göre bakiye kontrolü yapılmayacak
+  // const balanceValidation = validateSufficientBalance(expenseData.amount, currentBalance);
+  // if (!balanceValidation.isValid) {
+  //   return balanceValidation;
+  // }
   
   // Kategori boş olmamalı
   const categoryValidation = validateRequiredField(expenseData.category, 'Kategori');
@@ -141,7 +152,7 @@ export const validateExpense = (
  * Tasarruf hedefi verisinin geçerli olup olmadığını kontrol eder
  */
 export const validateSavingsGoal = (
-  goalData: Omit<SavingsGoal, 'id' | 'currentAmount' | 'createdAt'>
+  goalData: Omit<SavingsGoal, 'id' | 'createdAt'>
 ): ValidationResult => {
   // Hedef adı boş olmamalı
   const nameValidation = validateRequiredField(goalData.name, 'Hedef adı');
@@ -149,13 +160,26 @@ export const validateSavingsGoal = (
     return nameValidation;
   }
   
-  // Hedef tutar pozitif olmalı
-  const amountValidation = validatePositiveNumber(goalData.targetAmount, 'Hedef tutar');
-  if (!amountValidation.isValid) {
-    return amountValidation;
+  // Hedef tutarı pozitif olmalı
+  const targetAmountValidation = validatePositiveNumber(goalData.targetAmount, 'Hedef tutarı');
+  if (!targetAmountValidation.isValid) {
+    return targetAmountValidation;
   }
   
-  // Hedef tarihi belirtildiyse, gelecekte olmalı
+  // Başlangıç tutarı varsa pozitif olmalı
+  if (goalData.currentAmount !== undefined) {
+    const currentAmountValidation = validateNonNegativeNumber(goalData.currentAmount, 'Başlangıç tutarı');
+    if (!currentAmountValidation.isValid) {
+      return currentAmountValidation;
+    }
+    
+    // Başlangıç tutarı hedef tutarından büyük olmamalı
+    if (goalData.currentAmount > goalData.targetAmount) {
+      return invalidResult('Başlangıç tutarı hedef tutarından büyük olamaz');
+    }
+  }
+  
+  // Hedef tarihi belirtildiyse gelecekte olmalı
   if (goalData.targetDate) {
     const dateValidation = validateFutureDate(goalData.targetDate, 'Hedef tarihi');
     if (!dateValidation.isValid) {
@@ -179,7 +203,7 @@ export const validateAddFundsToGoal = (
     return amountValidation;
   }
   
-  // Yeterli bakiye kontrolü
+  // Bakiye kontrolü
   const balanceValidation = validateSufficientBalance(amount, currentBalance);
   if (!balanceValidation.isValid) {
     return balanceValidation;

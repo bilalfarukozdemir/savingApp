@@ -1,4 +1,5 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   financeManager, 
   Expense, 
@@ -32,6 +33,12 @@ interface UserProfile {
   monthlyIncome: number;
   incomeDay: number; // Gelirin ekleneceği gün (1-31)
   isOnboardingCompleted: boolean;
+  hasSeenData: {
+    expenses: boolean;
+    savings: boolean;
+    transactions: boolean;
+    dashboard: boolean;
+  };
 }
 
 // Context tipi tanımı
@@ -42,6 +49,17 @@ interface FinanceContextType {
   savingsGoals: SavingsGoal[];
   recentTransactions: Transaction[];
   userProfile: UserProfile | null;
+  
+  // Modal yönetimi
+  isExpenseModalVisible: boolean;  // Yeni: Harcama ekleme modalının görünürlüğü
+  showExpenseModal: () => void;    // Yeni: Harcama ekleme modalını göster
+  hideExpenseModal: () => void;    // Yeni: Harcama ekleme modalını gizle
+  
+  // Veri gösterim kontrolleri
+  hasExpensesData: () => boolean;
+  hasSavingsData: () => boolean;
+  hasTransactionsData: () => boolean;
+  markDataAsSeen: (dataType: 'expenses' | 'savings' | 'transactions' | 'dashboard') => void;
   
   // Hata yönetimi
   error: string | null;
@@ -55,8 +73,11 @@ interface FinanceContextType {
   addExpense: (expenseData: Omit<Expense, 'id' | 'date'> & { date?: Date }) => Expense | null;
   removeExpense: (expenseId: string) => boolean;
   
+  // Bakiye işlemleri
+  addToBalance: (amount: number, description?: string) => boolean;
+  
   // Tasarruf hedefi işlemleri
-  addSavingsGoal: (goalData: Omit<SavingsGoal, 'id' | 'currentAmount' | 'createdAt'>) => SavingsGoal | null;
+  addSavingsGoal: (goalData: Omit<SavingsGoal, 'id' | 'createdAt'>) => SavingsGoal | null;
   updateSavingsGoal: (goalId: string, updates: Partial<Omit<SavingsGoal, 'id' | 'createdAt'>>) => boolean;
   removeSavingsGoal: (goalId: string) => boolean;
   addFundsToGoal: (goalId: string, amount: number, description?: string) => boolean;
@@ -100,8 +121,37 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [expenses, setExpenses] = useState<Expense[]>(financeManager.getAllExpenses());
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(financeManager.getAllSavingsGoals());
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(financeManager.getRecentTransactions());
-  const [error, setError] = useState<string | null>(null);
   const [userProfile, setUserProfileState] = useState<UserProfile | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Yeni state: Harcama ekleme modalının görünürlüğü
+  const [isExpenseModalVisible, setIsExpenseModalVisible] = useState<boolean>(false);
+  
+  // LocalStorage'dan kullanıcı profilini yükle
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const savedProfile = await AsyncStorage.getItem('userProfile');
+        if (savedProfile) {
+          const parsed = JSON.parse(savedProfile);
+          // Eğer hasSeenData yoksa, ekle
+          if (!parsed.hasSeenData) {
+            parsed.hasSeenData = {
+              expenses: false,
+              savings: false,
+              transactions: false,
+              dashboard: false
+            };
+          }
+          setUserProfileState(parsed);
+        }
+      } catch (e) {
+        console.error('Kullanıcı profili yüklenemedi:', e);
+      }
+    };
+    
+    loadUserProfile();
+  }, []);
   
   // Analiz state'leri - boş değerlerle başlatılıyor
   const [categoryAnalysis, setCategoryAnalysis] = useState<Record<string, number>>({});
@@ -121,9 +171,25 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
   
   // Kullanıcı profili işlemleri
-  const setUserProfile = (userData: UserProfile) => {
-    setUserProfileState(userData);
-    // localStorage veya AsyncStorage'a kaydetme işlemleri burada yapılabilir
+  const setUserProfile = async (userData: UserProfile) => {
+    // hasSeenData değeri yoksa varsayılan olarak tümü false olarak ayarla
+    const updatedUserData = {
+      ...userData,
+      hasSeenData: userData.hasSeenData || {
+        expenses: false,
+        savings: false,
+        transactions: false,
+        dashboard: false
+      }
+    };
+    
+    setUserProfileState(updatedUserData);
+    // AsyncStorage'a kaydet
+    try {
+      await AsyncStorage.setItem('userProfile', JSON.stringify(updatedUserData));
+    } catch (e) {
+      console.error('Kullanıcı profili kaydedilemedi:', e);
+    }
   };
   
   const completeOnboarding = () => {
@@ -261,6 +327,12 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       const result = financeManager.addExpense(expenseData);
       refreshData();
+      
+      // Harcama eklendiğinde otomatik olarak görünür yap
+      if (userProfile && !userProfile.hasSeenData.expenses) {
+        markDataAsSeen('expenses');
+      }
+      
       return result;
     } catch (err) {
       setError("Harcama eklenirken bir hata oluştu");
@@ -292,7 +364,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
   
   // Tasarruf Hedefi Ekle
-  const addSavingsGoal = (goalData: Omit<SavingsGoal, 'id' | 'currentAmount' | 'createdAt'>): SavingsGoal | null => {
+  const addSavingsGoal = (goalData: Omit<SavingsGoal, 'id' | 'createdAt'>): SavingsGoal | null => {
     clearError();
     
     // Validasyon
@@ -304,6 +376,12 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       const result = financeManager.addSavingsGoal(goalData);
       refreshData();
+      
+      // Tasarruf hedefi eklendiğinde otomatik olarak görünür yap
+      if (userProfile && !userProfile.hasSeenData.savings) {
+        markDataAsSeen('savings');
+      }
+      
       return result;
     } catch (err) {
       setError("Tasarruf hedefi eklenirken bir hata oluştu");
@@ -377,6 +455,19 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       return false;
     }
     
+    // Hedefin var olduğunu kontrol et
+    const goal = savingsGoals.find(g => g.id === goalId);
+    if (!goal) {
+      setError("Belirtilen ID ile bir tasarruf hedefi bulunamadı");
+      return false;
+    }
+    
+    // Bakiye kontrolü
+    if (financialState.currentBalance < amount) {
+      setError(`Yetersiz bakiye. Mevcut bakiyeniz: ₺${financialState.currentBalance}`);
+      return false;
+    }
+    
     // Validasyon
     const validation = calculationService.validateAddFunds(amount, financialState.currentBalance);
     if (!handleValidationResult(validation)) {
@@ -386,13 +477,24 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       const result = financeManager.addFundsToGoal(goalId, amount, description);
       if (!result) {
-        setError("Belirtilen ID ile bir tasarruf hedefi bulunamadı");
+        setError("Tasarruf hedefine para eklenemedi. Lütfen bakiyenizi kontrol edin.");
         return false;
       }
       refreshData();
+      
+      // İşlem eklendiğinde otomatik olarak görünür yap
+      if (userProfile && !userProfile.hasSeenData.transactions) {
+        markDataAsSeen('transactions');
+      }
+      
+      // Tasarruf hedefine para eklendiğinde tasarrufları da görünür yap
+      if (userProfile && !userProfile.hasSeenData.savings) {
+        markDataAsSeen('savings');
+      }
+      
       return result;
     } catch (err) {
-      setError("Hedefe para eklenirken bir hata oluştu");
+      setError("Tasarruf hedefine para eklenirken bir hata oluştu");
       return false;
     }
   };
@@ -406,14 +508,19 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       return false;
     }
     
-    // Hedefin var olduğunu kontrol et
+    // Validasyon
     const goal = savingsGoals.find(g => g.id === goalId);
     if (!goal) {
       setError("Belirtilen ID ile bir tasarruf hedefi bulunamadı");
       return false;
     }
     
-    // Validasyon
+    // Hedefte yeterli miktar olup olmadığını kontrol et
+    if (goal.currentAmount < amount) {
+      setError(`Hedefte yeterli miktar bulunmuyor. Mevcut miktar: ₺${goal.currentAmount.toLocaleString()}, çekilmek istenen: ₺${amount.toLocaleString()}`);
+      return false;
+    }
+    
     const validation = calculationService.validateWithdrawFunds(amount, goal.currentAmount);
     if (!handleValidationResult(validation)) {
       return false;
@@ -421,10 +528,46 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     
     try {
       const result = financeManager.withdrawFundsFromGoal(goalId, amount, description);
+      if (!result) {
+        setError("Tasarruf hedefinden para çekilemedi, lütfen tekrar deneyin");
+        return false;
+      }
       refreshData();
+      
+      // İşlem eklendiğinde otomatik olarak görünür yap
+      if (userProfile && !userProfile.hasSeenData.transactions) {
+        markDataAsSeen('transactions');
+      }
+      
       return result;
     } catch (err) {
-      setError("Hedeften para çekilirken bir hata oluştu");
+      setError("Tasarruf hedefinden para çekilirken bir hata oluştu");
+      return false;
+    }
+  };
+  
+  // Bakiyeye Para Ekle
+  const addToBalance = (amount: number, description?: string): boolean => {
+    clearError();
+    
+    // Validasyon
+    const validation = calculationService.validatePositiveValue(amount, 'Eklenecek miktar');
+    if (!handleValidationResult(validation)) {
+      return false;
+    }
+    
+    try {
+      const result = financeManager.addToBalance(amount, description);
+      refreshData();
+      
+      // İşlem eklendiğinde otomatik olarak görünür yap
+      if (userProfile && !userProfile.hasSeenData.transactions) {
+        markDataAsSeen('transactions');
+      }
+      
+      return result;
+    } catch (err) {
+      setError("Bakiyeye para eklenirken bir hata oluştu");
       return false;
     }
   };
@@ -560,6 +703,50 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
   
+  // Veri görünürlük fonksiyonları
+  const hasExpensesData = (): boolean => {
+    // Veri varsa ve daha önce görüntülenmişse true döndür
+    return expenses.length > 0 && (userProfile?.hasSeenData?.expenses || false);
+  };
+  
+  const hasSavingsData = (): boolean => {
+    // Veri varsa ve daha önce görüntülenmişse true döndür
+    return savingsGoals.length > 0 && (userProfile?.hasSeenData?.savings || false);
+  };
+  
+  const hasTransactionsData = (): boolean => {
+    // Veri varsa ve daha önce görüntülenmişse true döndür
+    return recentTransactions.length > 0 && (userProfile?.hasSeenData?.transactions || false);
+  };
+  
+  const markDataAsSeen = async (dataType: 'expenses' | 'savings' | 'transactions' | 'dashboard'): Promise<void> => {
+    if (!userProfile) return;
+    
+    const updatedProfile = {
+      ...userProfile,
+      hasSeenData: {
+        ...userProfile.hasSeenData,
+        [dataType]: true
+      }
+    };
+    
+    setUserProfileState(updatedProfile);
+    try {
+      await AsyncStorage.setItem('userProfile', JSON.stringify(updatedProfile));
+    } catch (e) {
+      console.error('Kullanıcı profili güncellenemedi:', e);
+    }
+  };
+  
+  // Yeni fonksiyonlar: Harcama ekleme modalının kontrolü
+  const showExpenseModal = () => {
+    setIsExpenseModalVisible(true);
+  };
+
+  const hideExpenseModal = () => {
+    setIsExpenseModalVisible(false);
+  };
+  
   // Context değerini tanımla
   const value: FinanceContextType = {
     financialState,
@@ -591,6 +778,14 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     getMonthlyExpenseAnalysis,
     getYearlyExpenseAnalysis,
     getTopSpendingCategories,
+    hasExpensesData,
+    hasSavingsData,
+    hasTransactionsData,
+    markDataAsSeen,
+    addToBalance,
+    isExpenseModalVisible,
+    showExpenseModal,
+    hideExpenseModal,
   };
   
   return (
