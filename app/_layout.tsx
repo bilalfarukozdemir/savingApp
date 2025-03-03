@@ -14,6 +14,28 @@ import { ErrorMessage } from '@/components/ErrorMessage';
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+// Layout navigator
+function RootLayoutNav() {
+  const colorScheme = useColorScheme();
+  
+  return (
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <Stack initialRouteName="index">
+        {/* Ana sayfa index.tsx'te yönlendirme yapılacak */}
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen 
+          name="onboarding" 
+          options={{ 
+            headerShown: false,
+            animation: 'fade' 
+          }} 
+        />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+    </ThemeProvider>
+  );
+}
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
@@ -32,16 +54,11 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <FinanceProvider>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-          <StatusBar style="auto" />
-          <ErrorMessage />
-        </FinanceProvider>
-      </ThemeProvider>
+      <FinanceProvider>
+        <RootLayoutNav />
+        <StatusBar style="auto" />
+        <ErrorMessage />
+      </FinanceProvider>
     </SafeAreaProvider>
   );
 }

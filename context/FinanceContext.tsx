@@ -25,6 +25,15 @@ import {
 } from '@/utils/models/validation';
 import { calculationService } from '@/utils/services/calculationService';
 
+// Kullanıcı bilgileri için arayüz
+interface UserProfile {
+  name: string;
+  age: number;
+  monthlyIncome: number;
+  incomeDay: number; // Gelirin ekleneceği gün (1-31)
+  isOnboardingCompleted: boolean;
+}
+
 // Context tipi tanımı
 interface FinanceContextType {
   // State değerleri
@@ -32,10 +41,15 @@ interface FinanceContextType {
   expenses: Expense[];
   savingsGoals: SavingsGoal[];
   recentTransactions: Transaction[];
+  userProfile: UserProfile | null;
   
   // Hata yönetimi
   error: string | null;
   clearError: () => void;
+  
+  // Kullanıcı profili işlemleri
+  setUserProfile: (userData: UserProfile) => void;
+  completeOnboarding: () => void;
   
   // Harcama işlemleri
   addExpense: (expenseData: Omit<Expense, 'id' | 'date'> & { date?: Date }) => Expense | null;
@@ -86,6 +100,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(financeManager.getAllSavingsGoals());
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(financeManager.getRecentTransactions());
   const [error, setError] = useState<string | null>(null);
+  const [userProfile, setUserProfileState] = useState<UserProfile | null>(null);
   
   // Analiz state'leri - boş değerlerle başlatılıyor
   const [categoryAnalysis, setCategoryAnalysis] = useState<Record<string, number>>({});
@@ -102,6 +117,22 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       return false;
     }
     return true;
+  };
+  
+  // Kullanıcı profili işlemleri
+  const setUserProfile = (userData: UserProfile) => {
+    setUserProfileState(userData);
+    // localStorage veya AsyncStorage'a kaydetme işlemleri burada yapılabilir
+  };
+  
+  const completeOnboarding = () => {
+    if (userProfile) {
+      setUserProfileState({
+        ...userProfile,
+        isOnboardingCompleted: true
+      });
+      // localStorage veya AsyncStorage'a kaydetme işlemleri burada yapılabilir
+    }
   };
   
   // Kategori Toplamlarını Getir
@@ -519,6 +550,9 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     recentTransactions,
     error,
     clearError,
+    userProfile,
+    setUserProfile,
+    completeOnboarding,
     addExpense,
     removeExpense,
     addSavingsGoal,

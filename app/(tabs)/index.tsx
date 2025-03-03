@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useFinance } from '@/context/FinanceContext';
 import PieChart from 'react-native-pie-chart/v3api';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, Easing, FadeIn, FadeOut, SlideInRight } from 'react-native-reanimated';
 
@@ -26,6 +27,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const colors = Colors[colorScheme ?? 'light'];
+  const { userProfile } = useFinance();
   
   // Tema değiştirme state'i
   const [isDarkMode, setIsDarkMode] = useState(colorScheme === 'dark');
@@ -194,23 +196,27 @@ export default function HomeScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with Theme Toggle */}
+        {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={[styles.greeting, { color: colors.text }]}>Merhaba,</Text>
-            <Text style={[styles.userName, { color: colors.text }]}>Kullanıcı</Text>
+            <Text style={[styles.greeting, { color: colors.text }]}>
+              Merhaba, {userProfile?.name || 'Kullanıcı'}
+            </Text>
+            <Text style={[styles.date, { color: colors.textMuted }]}>
+              {new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </Text>
           </View>
-          <View style={styles.headerRight}>
+          
+          <View style={styles.themeToggle}>
+            <Text style={{ color: colors.text, marginRight: 8 }}>
+              {isDarkMode ? '🌙' : '☀️'}
+            </Text>
             <Switch
               value={isDarkMode}
               onValueChange={toggleTheme}
-              trackColor={{ false: '#767577', true: colors.tint + '50' }}
-              thumbColor={isDarkMode ? colors.tint : '#f4f3f4'}
-              style={styles.themeToggle}
+              trackColor={{ false: '#767577', true: colors.primary + '80' }}
+              thumbColor={isDarkMode ? colors.primary : '#f4f3f4'}
             />
-            <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.tint + '20' }]}>
-              <IconSymbol name="person.fill" size={24} color={colors.tint} />
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -726,23 +732,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
   },
   greeting: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  userName: {
     fontSize: 24,
     fontWeight: 'bold',
+    marginBottom: 4,
   },
-  profileButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
+  date: {
+    fontSize: 14,
+  },
+  themeToggle: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
   // Today's Summary Styles
@@ -1090,15 +1092,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-  // Header with Theme Toggle
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  themeToggle: {
-    marginRight: 12,
-  },
-  
   // Recent Transactions Styles
   recentTransactionsCard: {
     marginHorizontal: 16,
