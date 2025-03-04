@@ -228,6 +228,12 @@ export const Modal = ({
       visible={visible}
       onDismiss={onDismiss}
       contentContainerStyle={validStyle ? contentContainerStyle : undefined}
+      dismissable={true} 
+      dismissableBackButton={true}
+      // Modal animasyonlarını ve kullanıcı deneyimini iyileştiren ayarlar
+      animationType="fade"
+      statusBarTranslucent={true}
+      presentationStyle="overFullScreen"
       {...rest}
     >
       {children}

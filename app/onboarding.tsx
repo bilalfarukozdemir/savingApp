@@ -215,7 +215,13 @@ export default function OnboardingScreen() {
         age: parseInt(age),
         monthlyIncome: parseFloat(monthlyIncome),
         incomeDay: parseInt(incomeDay),
-        isOnboardingCompleted: true
+        isOnboardingCompleted: true,
+        hasSeenData: {
+          expenses: false,
+          savings: false,
+          transactions: false,
+          dashboard: false
+        }
       };
       
       // Save user profile to context

@@ -1,79 +1,101 @@
-# React Native Paper Entegrasyonu
+# Finansal Takip Uygulaması
 
-Bu proje React Native Paper kütüphanesini kullanarak modern bir kullanıcı arayüzü sağlamaktadır.
+Finansal hedeflerinizi takip etmek, harcamalarınızı yönetmek ve tasarruf hedeflerinizi gerçekleştirmek için geliştirilmiş kapsamlı bir mobil uygulama.
 
-## Entegrasyon Özeti
+## 🎯 Yeni Özellikler ve İyileştirmeler
 
-React Native Paper entegrasyonu aşağıdaki temel bileşenleri içermektedir:
+### 🔄 Animasyonlu Geçişler ve İyileştirilmiş Gezinme
 
-- **Tema Sistemi**: Aydınlık/karanlık mod desteği ve özelleştirilmiş renkler
-- **Tipografi Sistemi**: Tutarlı metin stillerı ve boyutları
-- **UI Bileşenleri**: Modern ve material tasarım standartlarına uygun bileşenler
-- **İkon Sistemi**: Çeşitli icon kütüphanelerine destek veren yapı
+- Sayfa geçişlerinde düzgün ve etkileyici animasyonlar
+- Tab navigasyonu için optimize edilmiş geçiş efektleri
+- Modal ve bottom sheet bileşenlerinde akıcı animasyonlar
 
-## Yapılandırma Dosyaları
+### 🃏 Animasyonlu Bileşenler
 
-React Native Paper tema yapılandırması aşağıdaki dosyalarda bulunmaktadır:
+- **AnimatedCard**: Çeşitli animasyon türleri (fade, slide, zoom) destekleyen kart bileşeni
+- **ErrorModal**: Kullanıcı dostu hata bildirimleri için animasyonlu modal
+- **BudgetOverview**: Bütçe bilgilerini sürekli güncellenen animasyonlarla gösterme
+- **SavingsOverview**: Tasarruf hedeflerini hareketli grafiklerle görselleştirme
+- **ExpenseOverview**: Harcama kategorilerini pasta grafiği ve animasyonlu geçişlerle gösterme
+- **TransactionsOverview**: Son işlemler listesinde kayan animasyonlar
 
-- `constants/PaperTheme.ts`: Renk şemaları, tipografi ve tema yapılandırması
-- `context/ThemeContext.tsx`: Tema durumu yönetimi ve geçişleri
-- `components/ThemedText.tsx`: Tipografi bileşenleri
-- `components/ui/PaperComponents.tsx`: Temel UI bileşenleri
-- `components/ui/ThemeIcon.tsx`: İkon sistemi
+### 🎨 Kullanıcı Deneyimi İyileştirmeleri
 
-## Bileşenler
+- Dokunmatik geri bildirim (Haptic Feedback) ile geliştirilmiş bildirimler
+- Tema geçişleri sırasında düzgün animasyonlar
+- Performans optimizasyonları
+- Responsive tasarım ve tüm ekran boyutlarına uyum
 
-React Native Paper, aşağıdaki bileşenleri sağlamaktadır:
+## 🛠️ Gelecek İyileştirmeler ve Öneriler
 
-- **Card**: Bilgileri gruplamak için kartlar
-- **Button**: Farklı tiplerde butonlar (contained, outlined, text)
-- **TextField**: Giriş alanları
-- **Typography**: Metin bileşenleri ve hiyerarşisi
-- **Checkbox, Radio, Switch**: Form elemanları
-- **Lists**: Liste bileşenleri
-- **Dialog, Modal, Snackbar**: Bildirim bileşenleri
-- **Chip**: Etiket ve seçim bileşenleri
+1. **Performans İyileştirmeleri**:
+   - Daha optimum re-render mekanizmaları
+   - Gereksiz re-render'ların azaltılması için memo ve useCallback kullanımı
 
-## İkon Kullanımı
+2. **Daha Gelişmiş Animasyonlar**:
+   - Gelişmiş paralaks etkiler
+   - Kaydırma bazlı animasyonlar
+   - Gesture (hareket) bazlı etkileşimler
 
-İkon kullanımı için `ThemeIcon` bileşeni aşağıdaki kütüphanelerle uyumludur:
+3. **Erişilebilirlik İyileştirmeleri**:
+   - Animasyonları devre dışı bırakma seçeneği
+   - Renk kontrast ayarları
+   - Daha büyük dokunma hedefleri
 
-- Material Icons
-- Material Community Icons
-- Font Awesome
-- Ionicons
-- ve daha fazlası...
+4. **Test ve Hata Ayıklama**:
+   - Animasyon birimlerinin UI testleri
+   - Performans ölçümlemeleri
 
-```typescript
-<ThemeIcon name="home" type="material" size={24} color={colors.primary} />
+## 📋 API Dokümantasyonu
+
+### AnimatedCard
+
+```jsx
+<AnimatedCard 
+  animationType="fade|slide|zoom|none" 
+  index={0} 
+  delay={100} 
+  duration={400}
+  onAnimationComplete={() => {}}
+>
+  {/* İçerik */}
+</AnimatedCard>
 ```
 
-## Dönüşüm Listesi
+### ErrorModal
 
-Aşağıdaki bileşenler React Native Paper'a taşınmıştır:
+```jsx
+<ErrorModal
+  visible={true}
+  title="Hata Başlığı"
+  message="Hata mesajı içeriği"
+  onDismiss={() => {}}
+  retryAction={() => {}}
+/>
+```
 
-- [x] Tema sistemi
-- [x] ThemedText bileşeni
-- [x] IconSymbol adaptör bileşeni
-- [x] EmptyState bileşeni
-- [x] ExpenseOverview bileşeni 
-- [x] Tab layout yapısı
+## 🚀 Kurulum ve Çalıştırma
 
-Dönüştürülecek diğer bileşenler:
+1. Bağımlılıkları yükleyin:
+   ```
+   npm install
+   ```
 
-- [ ] TransactionsOverview bileşeni
-- [ ] SavingsOverview bileşeni
-- [ ] Expenses ekranları
-- [ ] Savings ekranları
-- [ ] Onboarding ekranı
-- [ ] Form bileşenleri
-- [ ] Dialog bileşenleri
+2. Uygulamayı başlatın:
+   ```
+   npx expo start
+   ```
 
-## Demo Ekranı
+3. Expo Go uygulamasını kullanarak mobil cihazınızda test edin veya iOS/Android emülatörü başlatın.
 
-ThemeDemoScreen bileşeni, React Native Paper entegrasyonunu göstermek için kullanılabilir. Bu bileşen, tipografi, butonlar, kartlar ve diğer UI bileşenlerini sergilemektedir.
+## 📝 Notlar
 
-## Kaynaklar
+- React Native Reanimated 3.0+ gerektirir
+- Expo SDK 49+ gerektirir
+- iOS ve Android platformlarında test edilmiştir
 
-- [React Native Paper Dökümantasyonu](https://callstack.github.io/react-native-paper/)
-- [Material Design Rehberi](https://material.io/design)
+---
+
+## 📊 Ekran Görüntüleri
+
+(Ekran görüntüleri buraya eklenecek)

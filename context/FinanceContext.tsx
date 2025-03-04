@@ -65,6 +65,9 @@ interface FinanceContextType {
   error: string | null;
   clearError: () => void;
   
+  // Veri yenileme
+  refreshData: () => boolean;
+  
   // Kullanıcı profili işlemleri
   setUserProfile: (userData: UserProfile) => void;
   completeOnboarding: () => void;
@@ -285,8 +288,14 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       setSavingsAnalysis({
         overallProgress: calculateOverallSavingsProgress()
       });
+      
+      // Başarılı güncelleme durumunda hata mesajını temizle
+      clearError();
+      return true;
     } catch (err) {
+      console.error("Veriler güncellenirken bir hata oluştu:", err);
       setError("Veriler güncellenirken bir hata oluştu");
+      return false;
     }
   };
   
@@ -786,6 +795,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     isExpenseModalVisible,
     showExpenseModal,
     hideExpenseModal,
+    refreshData,
   };
   
   return (

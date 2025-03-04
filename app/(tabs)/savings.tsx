@@ -1149,6 +1149,20 @@ export default function TabTwoScreen() {
         enablePanDownToClose={true}
         handleIndicatorStyle={styles.bottomSheetIndicator}
         backgroundStyle={styles.bottomSheetBackground}
+        animateOnMount={true}
+        animationConfigs={{
+          damping: 20,
+          mass: 1,
+          stiffness: 200,
+          overshootClamping: false,
+          restDisplacementThreshold: 0.1,
+          restSpeedThreshold: 0.1,
+        }}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
+        enableContentPanningGesture={true}
+        enableHandlePanningGesture={true}
       >
         <BottomSheetScrollView contentContainerStyle={styles.bottomSheetContent}>
           <View style={[styles.modalHeader, { backgroundColor: '#2196F3' }]}>
@@ -1305,7 +1319,7 @@ export default function TabTwoScreen() {
         </BottomSheetScrollView>
       </BottomSheet>
 
-      {/* Para Ekleme/Çekme Bottom Sheet */}
+      {/* Para Ekle/Çek Bottom Sheet */}
       <BottomSheet
         ref={fundBottomSheetRef}
         index={-1}
@@ -1315,6 +1329,20 @@ export default function TabTwoScreen() {
         enablePanDownToClose={true}
         handleIndicatorStyle={styles.bottomSheetIndicator}
         backgroundStyle={styles.bottomSheetBackground}
+        animateOnMount={true}
+        animationConfigs={{
+          damping: 20,
+          mass: 1,
+          stiffness: 200,
+          overshootClamping: false,
+          restDisplacementThreshold: 0.1,
+          restSpeedThreshold: 0.1,
+        }}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
+        enableContentPanningGesture={true}
+        enableHandlePanningGesture={true}
       >
         <BottomSheetScrollView contentContainerStyle={styles.bottomSheetContent}>
           <View style={[styles.modalHeader, { backgroundColor: isAddingFunds ? '#4CAF50' : '#F44336' }]}>

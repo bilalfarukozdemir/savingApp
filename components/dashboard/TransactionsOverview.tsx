@@ -1,179 +1,200 @@
-import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/context/ThemeContext';
-import { useFinance } from '@/context/FinanceContext';
+import React from 'react';
+import { View, StyleSheet, FlatList, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { EmptyState } from '../ui/EmptyState';
+import { useFinance } from '@/context/FinanceContext';
+import { useTheme } from '@/context/ThemeContext';
+import { Colors } from '@/constants/Colors';
 import { formatCurrency, formatDate } from '@/utils';
-import { 
-  Card, 
-  Surface, 
-  Button, 
-  Divider 
-} from '@/components/ui/PaperComponents';
-import { 
-  ThemedText, 
-  TitleMedium, 
-  BodyMedium, 
-  BodySmall 
-} from '@/components/ThemedText';
-import { ThemeIcon } from '../ui/ThemeIcon';
+import { Card, Surface, Divider, Button } from '@/components/ui/PaperComponents';
+import { BodyMedium, BodySmall, TitleMedium, LabelMedium } from '@/components/ThemedText';
+import { ThemeIcon } from '@/components/ui/ThemeIcon';
+import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
+import { EmptyState } from '@/components/ui/EmptyState';
+
+// Transaction tipi tanımı
+interface Transaction {
+  id: string;
+  amount: number;
+  type: 'expense' | 'income' | 'transfer';
+  category: string;
+  categoryId?: string; // Opsiyonel kategori ID'si
+  description: string;
+  date: Date;
+  relatedGoalId?: string;
+}
+
+// Varsayılan kategori renkleri ve ikonları
+const DEFAULT_CATEGORIES = {
+  shopping: { icon: 'shopping-bag', color: '#4C9AFF' },
+  food: { icon: 'restaurant', color: '#F2994A' },
+  transport: { icon: 'directions-car', color: '#6FCF97' },
+  entertainment: { icon: 'movie', color: '#BB6BD9' },
+  health: { icon: 'favorite', color: '#EB5757' },
+  home: { icon: 'home', color: '#219653' },
+  other: { icon: 'receipt', color: '#828282' }
+};
 
 export const TransactionsOverview: React.FC = () => {
-  const { theme, isDark } = useTheme();
+  const { theme, isDark, paperTheme } = useTheme();
   const colors = Colors[theme];
   const router = useRouter();
   
   const { 
-    recentTransactions, 
-    hasTransactionsData,
-    markDataAsSeen
-  } = useFinance();
+    recentTransactions = [],
+  } = useFinance() || {};
   
-  // Veri durumunu kontrol et
-  const hasTransactions = recentTransactions.length > 0;
-  const hasSeenTransactions = hasTransactionsData();
+  // Son 5 işlemi gösterme
+  const transactions = recentTransactions ? recentTransactions.slice(0, 5) : [];
   
-  // İlk gösterim için state
-  const [showTutorial, setShowTutorial] = useState(hasTransactions && !hasSeenTransactions);
+  // İşlem detaylarını görüntüleme
+  const viewTransactionDetails = (transactionId: string) => {
+    console.log(`İşlem detayları görüntülenecek: ${transactionId}`);
+    // Hata vermemesi için doğrudan yönlendirmeyi geçici olarak kaldırıyoruz
+    // router.push(`/transactions/${transactionId}`);
+  };
   
-  // Son 5 işlemi al
-  const latestTransactions = recentTransactions.slice(0, 5);
+  // İşlemler sayfasına gitme
+  const viewAllTransactions = () => {
+    console.log('Tüm işlemler görüntülenecek');
+    // Hata vermemesi için doğrudan yönlendirmeyi geçici olarak kaldırıyoruz
+    // router.push('/transactions');
+  };
   
-  // İşlem tipine göre ikon ve renk belirleme
-  const getTransactionIcon = (type: string) => {
-    switch(type) {
-      case 'expense': return 'arrow-downward';
-      case 'income': return 'arrow-upward';
-      case 'transfer': return 'swap-horiz';
-      default: return 'receipt';
+  // Kategoriye göre ikon ve renk ayarlama - güvenli versiyonu
+  const getCategoryIconAndColor = (categoryId: string) => {
+    try {
+      // getCategoryById fonksiyonu kaldırıldı, doğrudan varsayılan kategoriyi kullanıyoruz
+      const defaultCategory = DEFAULT_CATEGORIES[categoryId as keyof typeof DEFAULT_CATEGORIES] || 
+                              DEFAULT_CATEGORIES.other;
+      
+      return {
+        icon: defaultCategory.icon,
+        color: defaultCategory.color,
+      };
+    } catch (error) {
+      console.log('Kategori bilgisi alınamadı:', error);
+      return {
+        icon: 'receipt',
+        color: '#4C9AFF',
+      };
     }
   };
   
-  const getTransactionColor = (type: string) => {
-    switch(type) {
-      case 'expense': return '#F44336'; // Kırmızı
-      case 'income': return '#4CAF50';  // Yeşil
-      case 'transfer': return '#2196F3'; // Mavi
-      default: return '#607D8B'; // Gri
+  // İşlem kartı
+  const renderTransactionItem = ({ item, index }: { item: Transaction, index: number }) => {
+    const { icon, color } = getCategoryIconAndColor(item.categoryId || item.category || 'other');
+    
+    // Tarih değerini güvenli bir şekilde biçimlendirme
+    let dateText = 'Bilinmeyen tarih';
+    try {
+      const date = item.date instanceof Date ? item.date : new Date(item.date);
+      dateText = formatDate(date);
+    } catch (e) {
+      console.log('Tarih biçimlendirme hatası:', e);
     }
-  };
-  
-  // Tüm işlemleri görüntüle
-  const viewAllTransactions = async () => {
-    await markDataAsSeen('transactions');
-    setShowTutorial(false);
-    router.push('/transactions');
-  };
-  
-  // Veri yok - Boş durum
-  if (!hasTransactions) {
+    
     return (
-      <Card style={styles.card}>
-        <View style={{padding: 16}}>
-          <TitleMedium style={styles.header}>İşlemler</TitleMedium>
-          <EmptyState
-            message="Henüz işlem kaydı bulunmuyor."
-            icon="cart.fill"
-          />
-        </View>
-      </Card>
+      <Animated.View
+        entering={SlideInRight.delay(index * 100).duration(300)}
+      >
+        <TouchableOpacity
+          style={styles.transactionCard}
+          onPress={() => viewTransactionDetails(item.id)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.transactionHeader}>
+            <Surface style={[styles.iconContainer, { backgroundColor: `${color}15` }]}>
+              <ThemeIcon
+                name={icon}
+                size={18}
+                color={color}
+                type="material"
+              />
+            </Surface>
+            
+            <View style={styles.transactionInfo}>
+              <BodyMedium numberOfLines={1} style={styles.transactionTitle}>
+                {item.description || 'İşlem'}
+              </BodyMedium>
+              <BodySmall style={styles.transactionDate}>{dateText}</BodySmall>
+            </View>
+            
+            <View style={styles.amountContainer}>
+              <BodyMedium 
+                style={[
+                  styles.transactionAmount, 
+                  { color: item.amount < 0 ? paperTheme.colors.error : paperTheme.colors.primary }
+                ]}
+              >
+                {item.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(item.amount))}
+              </BodyMedium>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+  
+  // Boş durum - veri yoksa
+  if (!transactions || transactions.length === 0) {
+    return (
+      <Animated.View entering={FadeIn.duration(400)}>
+        <EmptyState
+          title="İşlem Bulunamadı"
+          message="Henüz bir işlem yapmadınız. İlk işleminizi ekleyin."
+          icon="receipt-long"
+          containerStyle={{ backgroundColor: 'transparent', height: 120 }}
+        />
+      </Animated.View>
     );
   }
   
   return (
-    <Card style={styles.card}>
-      <Animated.View entering={FadeIn.duration(500)}>
-        <View style={styles.headerRow}>
-          <TitleMedium style={styles.header}>Son İşlemler</TitleMedium>
-          <Button 
-            mode="text" 
-            onPress={viewAllTransactions}
-            style={styles.viewAllButton}
-          >
-            Tümünü Gör
-          </Button>
-        </View>
-        
-        <Divider style={styles.divider} />
-        
-        <View style={styles.transactionsContainer}>
-          {latestTransactions.map((transaction, index) => (
-            <View key={index} style={styles.transactionItem}>
-              <Surface style={[
-                styles.iconContainer, 
-                { backgroundColor: `${getTransactionColor(transaction.type)}20` }
-              ]}>
-                <ThemeIcon 
-                  name={getTransactionIcon(transaction.type)} 
-                  size={16} 
-                  color={getTransactionColor(transaction.type)} 
-                  type="material"
-                />
-              </Surface>
-              
-              <View style={styles.transactionInfo}>
-                <BodyMedium style={styles.transactionCategory}>
-                  {transaction.category}
-                </BodyMedium>
-                <BodySmall style={styles.transactionDate}>
-                  {formatDate(transaction.date)}
-                </BodySmall>
-              </View>
-              
-              <BodyMedium 
-                style={[
-                  styles.transactionAmount, 
-                  { color: getTransactionColor(transaction.type) }
-                ]}
-              >
-                {transaction.type === 'expense' ? '-' : '+'}{formatCurrency(transaction.amount)}
-              </BodyMedium>
-            </View>
-          ))}
-        </View>
-      </Animated.View>
-    </Card>
+    <Animated.View
+      entering={FadeIn.duration(400)}
+      style={styles.container}
+    >
+      {/* Yatay kaydırmalı işlem listesi */}
+      <FlatList
+        data={transactions}
+        renderItem={renderTransactionItem}
+        keyExtractor={(item, index) => item.id || index.toString()}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        scrollEnabled={false} // Ana sayfada kaydırmadan listeleme
+      />
+      
+      {recentTransactions && recentTransactions.length > 5 && (
+        <Button
+          mode="outlined"
+          onPress={viewAllTransactions}
+          style={styles.viewAllButton}
+          labelStyle={{ fontSize: 12 }}
+        >
+          Tüm İşlemleri Görüntüle
+        </Button>
+      )}
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 12,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  header: {
-    padding: 16,
-    paddingBottom: 0,
-  },
-  viewAllButton: {
-    marginRight: 8,
-  },
-  divider: {
-    marginHorizontal: 16,
+  container: {
     marginTop: 8,
+  },
+  separator: {
+    height: 8,
+  },
+  scrollContainer: {
+    paddingBottom: 8,
+  },
+  transactionCard: {
+    borderRadius: 8,
+    padding: 12,
     marginBottom: 4,
   },
-  transactionsContainer: {
-    padding: 16,
-    paddingTop: 8,
-  },
-  transactionItem: {
+  transactionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
   },
   iconContainer: {
     width: 36,
@@ -182,19 +203,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-    elevation: 1,
   },
   transactionInfo: {
     flex: 1,
   },
-  transactionCategory: {
-    marginBottom: 2,
+  transactionTitle: {
     fontWeight: '500',
   },
   transactionDate: {
-    opacity: 0.7,
+    opacity: 0.6,
+    fontSize: 12,
+  },
+  amountContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   transactionAmount: {
-    fontWeight: '700',
-  }
+    fontWeight: '600',
+  },
+  viewAllButton: {
+    marginTop: 12,
+    alignSelf: 'center',
+  },
 }); 

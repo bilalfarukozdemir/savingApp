@@ -13,6 +13,13 @@ import { TransactionsOverview } from '@/components/dashboard/TransactionsOvervie
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
+import { AnimatedCard } from '@/components/ui/AnimatedCard';
+import { CardContent, CardActions, Divider } from '@/components/ui/PaperComponents';
+import { TitleLarge, TitleMedium, BodyMedium, BodySmall } from '@/components/ThemedText';
+import { ThemeIcon } from '@/components/ui/ThemeIcon';
+import { Button, IconButton } from '@/components/ui/PaperComponents';
+import { router } from 'expo-router';
+import { BudgetOverview } from '@/components/dashboard/BudgetOverview';
 
 // Ekran genişliğini al
 const { width: screenWidth } = Dimensions.get('window');
@@ -40,7 +47,8 @@ export default function HomeScreen() {
     addToBalance,
     isExpenseModalVisible,
     showExpenseModal,
-    hideExpenseModal 
+    hideExpenseModal,
+    refreshData
   } = useFinance();
   
   // URL parametrelerini al
@@ -244,6 +252,23 @@ export default function HomeScreen() {
     setBalanceModalVisible(true);
   };
 
+  const refreshDashboard = () => {
+    // refreshData fonksiyonu FinanceContext'te tanımlı değilse hata vermesini engelle
+    if (typeof refreshData === 'function') {
+      const success = refreshData();
+      if (success) {
+        // Başarılı güncelleme durumunda kullanıcıya bildirim göster
+        Alert.alert('Başarılı', 'Veriler başarıyla güncellendi!');
+      } else {
+        // Hata durumunda kullanıcıya bildirim göster
+        Alert.alert('Hata', 'Veriler güncellenirken bir sorun oluştu.');
+      }
+    } else {
+      console.log('refreshData fonksiyonu bulunamadı');
+      Alert.alert('Hata', 'Veri güncelleme fonksiyonu bulunamadı.');
+    }
+  };
+
   return (
     <SafeAreaView style={[
       styles.container, 
@@ -258,249 +283,108 @@ export default function HomeScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={[styles.greeting, { color: colors.text }]}>
-              Merhaba, {userProfile?.name || 'Kullanıcı'}
-            </Text>
-            <Text style={[styles.date, { color: colors.textMuted }]}>
-              {new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </Text>
-          </View>
-          
-          <View style={styles.themeToggle}>
-            <Text style={{ color: colors.text, marginRight: 8 }}>
-              {isDark ? '🌙' : '☀️'}
-            </Text>
-            <Switch
-              value={isDark}
-              onValueChange={toggleTheme}
-              trackColor={{ false: '#767577', true: colors.primary + '80' }}
-              thumbColor={isDark ? colors.primary : '#f4f3f4'}
-            />
-          </View>
+          <TitleLarge>Finansal Özet</TitleLarge>
+          <BodyMedium style={styles.subtitle}>
+            Finansal durumunu kontrol et.
+          </BodyMedium>
         </View>
 
-        {/* Bakiye Kartı */}
-        <Animated.View style={[styles.balanceCard, { backgroundColor: colors.card }, balanceCardStyle]}>
-          <View style={styles.balanceCardHeader}>
-            <Text style={[styles.balanceLabel, { color: colors.text }]}>Mevcut Bakiye</Text>
-            <TouchableOpacity
-              style={[styles.balanceAddButton, { backgroundColor: colors.primary }]}
-              onPress={openBalanceModal}
-            >
-              <Text style={styles.balanceAddButtonText}>+</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={[styles.balanceAmount, { color: colors.text }]}>
-            ₺{financialState.currentBalance.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </Text>
-        </Animated.View>
+        {/* Dashboard içeriği - Burada dashboard bileşenleri çağrılacak */}
+        <View style={styles.dashboardContainer}>
+          {/* Kullanıcı Karşılama Kartı */}
+          <AnimatedCard 
+            animationType="fade" 
+            index={0}
+            delay={100}
+          >
+            <CardContent>
+              <TitleMedium>Hoş geldin, {userProfile?.name || 'Ziyaretçi'}</TitleMedium>
+              <BodyMedium>Bugün finansal hedeflerine bir adım daha yaklaşabilirsin.</BodyMedium>
+            </CardContent>
+          </AnimatedCard>
+          
+          {/* Bütçe Özeti */}
+          <AnimatedCard 
+            animationType="slide" 
+            index={1}
+            delay={200}
+          >
+            <CardContent>
+              <View style={styles.sectionHeader}>
+                <TitleMedium>Bütçe Özeti</TitleMedium>
+                <IconButton 
+                  icon="refresh" 
+                  onPress={refreshDashboard} 
+                  size={20} 
+                />
+              </View>
+              <BudgetOverview />
+            </CardContent>
+          </AnimatedCard>
+          
+          {/* Harcama Özeti */}
+          <AnimatedCard 
+            animationType="slide" 
+            index={2}
+            delay={300}
+          >
+            <CardContent>
+              <View style={styles.sectionHeader}>
+                <TitleMedium>Harcama Özeti</TitleMedium>
+              </View>
+              <ExpenseOverview />
+            </CardContent>
+          </AnimatedCard>
+          
+          {/* Son İşlemler */}
+          <AnimatedCard 
+            animationType="slide" 
+            index={3}
+            delay={400}
+          >
+            <CardContent>
+              <View style={styles.sectionHeader}>
+                <TitleMedium>Son İşlemler</TitleMedium>
+                <Button 
+                  mode="text" 
+                  onPress={() => router.push('/transactions')}
+                >
+                  Tümünü Gör
+                </Button>
+              </View>
+              <TransactionsOverview />
+            </CardContent>
+          </AnimatedCard>
+          
+          {/* Tasarruf Hedefleri */}
+          <AnimatedCard 
+            animationType="zoom" 
+            index={4}
+            delay={500}
+          >
+            <CardContent>
+              <View style={styles.sectionHeader}>
+                <TitleMedium>Tasarruf Hedefleri</TitleMedium>
+                <Button 
+                  mode="text" 
+                  onPress={() => router.push('/savings')}
+                >
+                  Tümünü Gör
+                </Button>
+              </View>
+              <SavingsOverview />
+            </CardContent>
+          </AnimatedCard>
+        </View>
 
-        {/* Yeni Dashboard Bileşenleri */}
-        
-        {/* Tasarruf Hedefleri Özeti */}
-        <SavingsOverview />
-        
-        {/* Harcama Analizi */}
-        <ExpenseOverview />
-        
-        {/* Son İşlemler */}
-        <TransactionsOverview />
-
-        {/* Eski İçerik Kaldırıldı */}
-        
-        {/* Modals */}
-        {isExpenseModalVisible && (
-          <View style={{
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            zIndex: 9999,
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}>
-            <TouchableOpacity
-              style={{
-                position: 'absolute',
-                top: 0,
-                bottom: 0,
-                left: 0,
-                right: 0,
-              }}
-              activeOpacity={1}
-              onPress={hideExpenseModal}
-            />
-            <View style={{
-              width: '100%',
-              backgroundColor: colors.background,
-              borderRadius: 20,
-              padding: 24,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 5 },
-              shadowOpacity: 0.3,
-              shadowRadius: 12,
-              elevation: 15,
-              maxWidth: 450,
-            }}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>Harcama Ekle</Text>
-                <TouchableOpacity 
-                  onPress={hideExpenseModal}
-                >
-                  <IconSymbol name="xmark.circle.fill" size={24} color={colors.icon} />
-                </TouchableOpacity>
-              </View>
-              
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: colors.text }]}>Miktar (₺)</Text>
-                <TextInput
-                  style={[styles.formInput, { backgroundColor: colors.background === '#fff' ? '#F5F5F5' : '#2A2A2A', color: colors.text }]}
-                  value={expenseAmount}
-                  onChangeText={setExpenseAmount}
-                  keyboardType="numeric"
-                  placeholder="0.00"
-                  placeholderTextColor={colors.icon}
-                />
-              </View>
-              
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: colors.text }]}>Kategori</Text>
-                <View style={styles.categoryButtons}>
-                  {categories.map((category, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.categoryButton,
-                        { backgroundColor: expenseCategory === category.name ? category.color + '30' : colors.background === '#fff' ? '#F5F5F5' : '#2A2A2A' }
-                      ]}
-                      onPress={() => setExpenseCategory(category.name)}
-                    >
-                      <IconSymbol name={category.icon as any} size={20} color={category.color} />
-                      <Text style={[styles.categoryButtonText, { color: colors.text }]}>{category.name}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-              
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: colors.text }]}>Açıklama</Text>
-                <TextInput
-                  style={[styles.formInput, { backgroundColor: colors.background === '#fff' ? '#F5F5F5' : '#2A2A2A', color: colors.text }]}
-                  value={expenseDescription}
-                  onChangeText={setExpenseDescription}
-                  placeholder="Açıklama girin"
-                  placeholderTextColor={colors.icon}
-                />
-              </View>
-              
-              <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: colors.primary }]}
-                onPress={addExpense}
-              >
-                <Text style={styles.submitButtonText}>Kaydet</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-        
-        {/* Hedef Güncelleme Modalı */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={goalModalVisible}
-          onRequestClose={() => setGoalModalVisible(false)}
+        <Button
+          mode="contained"
+          onPress={toggleTheme}
+          style={styles.themeButton}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>Tasarruf Hedefi Güncelle</Text>
-                <TouchableOpacity 
-                  style={[styles.modalCloseButton, { backgroundColor: colors.backgroundSecondary }]}
-                  onPress={() => setGoalModalVisible(false)}
-                >
-                  <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>İptal</Text>
-                </TouchableOpacity>
-              </View>
-              
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: colors.text }]}>Yeni Hedef Miktar (₺)</Text>
-                <TextInput
-                  style={[styles.formInput, { backgroundColor: colors.background === '#fff' ? '#F5F5F5' : '#2A2A2A', color: colors.text }]}
-                  value={savingsGoalAmount}
-                  onChangeText={setSavingsGoalAmount}
-                  keyboardType="numeric"
-                  placeholder="0.00"
-                  placeholderTextColor={colors.icon}
-                />
-              </View>
-              
-              <TouchableOpacity 
-                style={[styles.modalActionButton, { backgroundColor: colors.primary }]}
-                onPress={updateSavingsGoal}
-              >
-                <Text style={styles.modalActionButtonText}>Güncelle</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-        
-        {/* Bakiye Ekleme Modalı */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={balanceModalVisible}
-          onRequestClose={() => setBalanceModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>Bakiye Ekle</Text>
-                <TouchableOpacity 
-                  style={[styles.modalCloseButton, { backgroundColor: colors.backgroundSecondary }]}
-                  onPress={() => setBalanceModalVisible(false)}
-                >
-                  <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>İptal</Text>
-                </TouchableOpacity>
-              </View>
-              
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: colors.text }]}>Miktar (₺)</Text>
-                <TextInput
-                  style={[styles.formInput, { backgroundColor: colors.background === '#fff' ? '#F5F5F5' : '#2A2A2A', color: colors.text }]}
-                  value={balanceAmount}
-                  onChangeText={setBalanceAmount}
-                  keyboardType="numeric"
-                  placeholder="0.00"
-                  placeholderTextColor={colors.icon}
-                />
-              </View>
-              
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: colors.text }]}>Açıklama (isteğe bağlı)</Text>
-                <TextInput
-                  style={[styles.formInput, { backgroundColor: colors.background === '#fff' ? '#F5F5F5' : '#2A2A2A', color: colors.text }]}
-                  value={balanceDescription}
-                  onChangeText={setBalanceDescription}
-                  placeholder="Açıklama girin"
-                  placeholderTextColor={colors.icon}
-                />
-              </View>
-              
-              <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: colors.primary }]}
-                onPress={addBalance}
-              >
-                <Text style={styles.submitButtonText}>Ekle</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+          {isDark ? 'Aydınlık Tema' : 'Karanlık Tema'}
+        </Button>
       </ScrollView>
     </SafeAreaView>
   );
@@ -517,23 +401,25 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   header: {
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    paddingBottom: 20,
+  },
+  subtitle: {
+    marginTop: 4,
+    opacity: 0.7,
+  },
+  dashboardContainer: {
+    padding: 16,
+  },
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    marginBottom: 12,
   },
-  greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  date: {
-    fontSize: 14,
-  },
-  themeToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  themeButton: {
+    margin: 20,
   },
   // Today's Summary Styles
   todaySummaryCard: {

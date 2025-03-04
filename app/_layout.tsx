@@ -21,17 +21,41 @@ function RootLayoutNav() {
   
   return (
     <NavigationThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
-      <Stack initialRouteName="index">
+      <Stack
+        initialRouteName="index"
+        screenOptions={{
+          headerShown: false,
+          // Gelişmiş geçiş animasyonu ayarları
+          animation: 'slide_from_right',
+          presentation: 'card',
+          gestureEnabled: true,
+          gestureDirection: 'horizontal',
+          animationTypeForReplace: 'push',
+          // Animasyon süresi azaltılarak daha hızlı ve akıcı geçişler sağlanır
+          animationDuration: 250,
+          // Dokunmatik geri gitme (swipe back) hareketini iyileştirme
+          fullScreenGestureEnabled: true,
+        }}
+      >
         {/* Ana sayfa index.tsx'te yönlendirme yapılacak */}
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen 
           name="onboarding" 
           options={{ 
             headerShown: false,
-            animation: 'fade' 
+            animation: 'fade',
+            presentation: 'transparentModal'
           }} 
         />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen 
+          name="(tabs)" 
+          options={{ 
+            headerShown: false,
+            // Tab'a geçerken aşağıdan yukarı kaydırma efekti
+            animation: 'slide_from_bottom',
+            presentation: 'card'
+          }} 
+        />
       </Stack>
     </NavigationThemeProvider>
   );
