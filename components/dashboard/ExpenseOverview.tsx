@@ -1,17 +1,32 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { IconSymbol } from '../ui/IconSymbol';
+import { ThemeIcon } from '../ui/ThemeIcon';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useTheme } from '@/context/ThemeContext';
 import { useFinance } from '@/context/FinanceContext';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { EmptyState } from '../ui/EmptyState';
 import { formatCurrency } from '@/utils';
+import { 
+  Surface, 
+  Card,
+  Button, 
+  Divider
+} from '@/components/ui/PaperComponents';
+import { 
+  ThemedText, 
+  TitleLarge, 
+  TitleMedium, 
+  BodyMedium, 
+  BodySmall, 
+  LabelMedium 
+} from '@/components/ThemedText';
 
 export const ExpenseOverview: React.FC = () => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const { theme, isDark } = useTheme();
+  const colors = Colors[theme];
   const router = useRouter();
   
   const { 
@@ -48,265 +63,167 @@ export const ExpenseOverview: React.FC = () => {
     'Eğitim': '#4CAF50',
     'Eğlence': '#00BCD4',
     'Giyim': '#E91E63',
+    'Alışveriş': '#FFEB3B',
+    'Faturalar': '#795548',
     'Diğer': '#607D8B'
   };
   
-  // Harcama detayına git
   const viewExpenseDetails = async () => {
-    await markDataAsSeen('expenses');
-    setShowTutorial(false);
-    router.push('/expenses');
+    if (hasExpenses) {
+      // Verinin görüldüğünü işaretle
+      await markDataAsSeen('expenses');
+      // Ayrıntılar sayfasına yönlendir
+      router.push('/expenses');
+    }
   };
   
-  // Yeni harcama ekleme sayfasına git
   const addNewExpense = () => {
     showExpenseModal();
   };
   
-  // Veri yok - Boş durum
   if (!hasExpenses) {
     return (
-      <Animated.View 
-        entering={FadeIn.duration(500)} 
-        style={[styles.card, { backgroundColor: colors.card }]}
-      >
-        <EmptyState
-          title="Harcama Ekle"
-          message="Finansal durumunuzu takip etmek için harcamalarınızı ekleyin."
-          icon="receipt"
-          containerStyle={{ backgroundColor: 'transparent' }}
-        />
-        <TouchableOpacity 
-          style={[styles.button, { backgroundColor: colors.primary }]}
-          onPress={addNewExpense}
-        >
-          <IconSymbol name="plus" size={16} color="#FFFFFF" />
-          <Text style={styles.buttonText}>Harcama Ekle</Text>
-        </TouchableOpacity>
-      </Animated.View>
+      <Card style={styles.card}>
+        <View style={{padding: 16}}>
+          <TitleMedium style={styles.header}>Harcamalar</TitleMedium>
+          <EmptyState 
+            message="Henüz harcama kaydı bulunmuyor."
+            icon="cart.fill"
+            action={{
+              title: "Harcama Ekle",
+              onPress: addNewExpense
+            }}
+          />
+        </View>
+      </Card>
     );
   }
   
-  // Veri var ama ilk kez görüntüleniyor - Eğitim/tanıtım
-  if (showTutorial) {
-    return (
-      <Animated.View 
-        entering={FadeIn.duration(500)} 
-        style={[styles.card, { backgroundColor: colors.card }]}
-      >
-        <View style={styles.tutorialContainer}>
-          <IconSymbol name="lightbulb" size={32} color={colors.primary} style={styles.tutorialIcon} />
-          <Text style={[styles.tutorialTitle, { color: colors.text }]}>Harcama Analiziniz</Text>
-          <Text style={[styles.tutorialText, { color: colors.textMuted }]}>
-            Burada harcamalarınızın kategorilere göre dağılımını görebilirsiniz.
-            En çok harcama yaptığınız alanları takip edebilirsiniz.
-          </Text>
-        </View>
-        
-        <View style={styles.headerRow}>
-          <Text style={[styles.title, { color: colors.text }]}>Harcama Analizi</Text>
-          <Text style={[styles.totalAmount, { color: colors.text }]}>
-            {formatCurrency(totalExpenses)}
-          </Text>
-        </View>
-        
-        <View style={styles.categoriesContainer}>
-          {topCategories.map((category, index) => (
-            <View key={index} style={styles.categoryItem}>
-              <View style={styles.categoryHeader}>
-                <View style={[styles.categoryDot, { backgroundColor: categoryColors[category.category] || '#607D8B' }]} />
-                <Text style={[styles.categoryName, { color: colors.text }]}>{category.category}</Text>
-                <Text style={[styles.categoryAmount, { color: colors.text }]}>
-                  {formatCurrency(category.amount)}
-                </Text>
-              </View>
-              <View style={styles.categoryDetailsRow}>
-                <Text style={[styles.categoryPercentage, { color: colors.text }]}>
-                  {`${Math.round((category.amount / totalExpenses) * 100)}%`}
-                </Text>
-                <Text style={[styles.categoryDescription, { color: colors.secondaryText }]}>
-                  toplam harcamanın
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-        
-        <View style={styles.actionContainer}>
-          <TouchableOpacity 
-            style={[styles.button, { backgroundColor: colors.primary, marginRight: 8, flex: 1 }]}
-            onPress={viewExpenseDetails}
-          >
-            <Text style={styles.buttonText}>Tüm Harcamaları Görüntüle</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.button, { backgroundColor: colors.primary, marginLeft: 8, flex: 1 }]}
-            onPress={addNewExpense}
-          >
-            <IconSymbol name="plus" size={16} color="#FFFFFF" />
-            <Text style={styles.buttonText}>Harcama Ekle</Text>
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
-    );
-  }
-  
-  // Normal görünüm - Veri var ve daha önce görüntülenmiş
   return (
-    <Animated.View 
-      entering={FadeIn.duration(500)} 
-      style={[styles.card, { backgroundColor: colors.card }]}
-    >
-      <View style={styles.headerRow}>
-        <Text style={[styles.title, { color: colors.text }]}>Harcama Analizi</Text>
-        <Text style={[styles.totalAmount, { color: colors.text }]}>
-          {formatCurrency(totalExpenses)}
-        </Text>
-      </View>
-      
-      <View style={styles.categoriesContainer}>
-        {topCategories.map((category, index) => (
-          <View key={index} style={styles.categoryItem}>
-            <View style={styles.categoryHeader}>
-              <View style={[styles.categoryDot, { backgroundColor: categoryColors[category.category] || '#607D8B' }]} />
-              <Text style={[styles.categoryName, { color: colors.text }]}>{category.category}</Text>
-              <Text style={[styles.categoryAmount, { color: colors.text }]}>
-                {formatCurrency(category.amount)}
-              </Text>
-            </View>
-            <View style={styles.categoryDetailsRow}>
-              <Text style={[styles.categoryPercentage, { color: colors.text }]}>
-                {`${Math.round((category.amount / totalExpenses) * 100)}%`}
-              </Text>
-              <Text style={[styles.categoryDescription, { color: colors.secondaryText }]}>
-                toplam harcamanın
-              </Text>
-            </View>
-          </View>
-        ))}
-      </View>
-      
-      <View style={styles.actionContainer}>
-        <TouchableOpacity 
-          style={[styles.button, { backgroundColor: colors.primary, marginRight: 8, flex: 1 }]}
-          onPress={viewExpenseDetails}
-        >
-          <Text style={styles.buttonText}>Tüm Harcamaları Görüntüle</Text>
-        </TouchableOpacity>
+    <Card style={styles.card}>
+      <Animated.View entering={FadeIn.duration(500)}>
+        <View style={styles.headerRow}>
+          <TitleMedium style={styles.header}>Harcamalar</TitleMedium>
+          <Button 
+            mode="text" 
+            onPress={viewExpenseDetails}
+            style={styles.viewAllButton}
+          >
+            Tümünü Gör
+          </Button>
+        </View>
         
-        <TouchableOpacity 
-          style={[styles.button, { backgroundColor: colors.primary, marginLeft: 8, flex: 1 }]}
-          onPress={addNewExpense}
-        >
-          <IconSymbol name="plus" size={16} color="#FFFFFF" />
-          <Text style={styles.buttonText}>Harcama Ekle</Text>
-        </TouchableOpacity>
-      </View>
-    </Animated.View>
+        <View style={styles.totalSection}>
+          <BodyMedium style={styles.totalLabel}>Toplam Harcama</BodyMedium>
+          <TitleLarge style={styles.totalAmount}>
+            {formatCurrency(totalExpenses)}
+          </TitleLarge>
+        </View>
+        
+        <Divider style={styles.divider} />
+        
+        <View style={styles.topCategories}>
+          <BodyMedium style={styles.sectionTitle}>En Çok Harcama</BodyMedium>
+          
+          {topCategories.map((item, index) => {
+            const categoryColor = categoryColors[item.category] || colors.text;
+            const percentage = Math.round((item.amount / totalExpenses) * 100);
+            
+            return (
+              <View key={item.category} style={styles.categoryRow}>
+                <View style={styles.categoryInfo}>
+                  <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
+                  <View>
+                    <BodyMedium>{item.category}</BodyMedium>
+                    <BodySmall style={styles.percentage}>{percentage}%</BodySmall>
+                  </View>
+                </View>
+                <BodyMedium style={styles.categoryAmount}>
+                  {formatCurrency(item.amount)}
+                </BodyMedium>
+              </View>
+            );
+          })}
+        </View>
+        
+        <View style={styles.actions}>
+          <Button 
+            mode="contained" 
+            onPress={addNewExpense}
+            icon="add-circle"
+          >
+            Harcama Ekle
+          </Button>
+        </View>
+      </Animated.View>
+    </Card>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    padding: 16,
     marginHorizontal: 16,
-    marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginVertical: 8,
+    borderRadius: 12,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  header: {
+    padding: 16,
+    paddingBottom: 0,
   },
-  totalAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  categoriesContainer: {
-    marginBottom: 16,
-  },
-  categoryItem: {
-    marginBottom: 12,
-  },
-  categoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  categoryDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  viewAllButton: {
     marginRight: 8,
   },
-  categoryName: {
-    flex: 1,
-    fontSize: 14,
+  totalSection: {
+    padding: 16,
+    paddingTop: 0,
   },
-  categoryAmount: {
-    fontSize: 14,
+  totalLabel: {
+    marginBottom: 4,
+    opacity: 0.7,
+  },
+  totalAmount: {
+    fontSize: 28,
+  },
+  divider: {
+    marginHorizontal: 16,
+  },
+  topCategories: {
+    padding: 16,
+  },
+  sectionTitle: {
+    marginBottom: 12,
     fontWeight: '500',
   },
-  categoryDetailsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  categoryPercentage: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginRight: 4,
-  },
-  categoryDescription: {
-    fontSize: 14,
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginLeft: 8,
-  },
-  tutorialContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 8,
-  },
-  tutorialIcon: {
-    marginBottom: 12,
-  },
-  tutorialTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  tutorialText: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  actionContainer: {
+  categoryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  categoryInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  categoryDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  percentage: {
+    opacity: 0.6,
+  },
+  categoryAmount: {
+    fontWeight: '500',
+  },
+  actions: {
+    padding: 16,
+    paddingTop: 8,
   },
 }); 

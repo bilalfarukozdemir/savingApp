@@ -1,50 +1,79 @@
-# Welcome to your Expo app 👋
+# React Native Paper Entegrasyonu
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Bu proje React Native Paper kütüphanesini kullanarak modern bir kullanıcı arayüzü sağlamaktadır.
 
-## Get started
+## Entegrasyon Özeti
 
-1. Install dependencies
+React Native Paper entegrasyonu aşağıdaki temel bileşenleri içermektedir:
 
-   ```bash
-   npm install
-   ```
+- **Tema Sistemi**: Aydınlık/karanlık mod desteği ve özelleştirilmiş renkler
+- **Tipografi Sistemi**: Tutarlı metin stillerı ve boyutları
+- **UI Bileşenleri**: Modern ve material tasarım standartlarına uygun bileşenler
+- **İkon Sistemi**: Çeşitli icon kütüphanelerine destek veren yapı
 
-2. Start the app
+## Yapılandırma Dosyaları
 
-   ```bash
-    npx expo start
-   ```
+React Native Paper tema yapılandırması aşağıdaki dosyalarda bulunmaktadır:
 
-In the output, you'll find options to open the app in a
+- `constants/PaperTheme.ts`: Renk şemaları, tipografi ve tema yapılandırması
+- `context/ThemeContext.tsx`: Tema durumu yönetimi ve geçişleri
+- `components/ThemedText.tsx`: Tipografi bileşenleri
+- `components/ui/PaperComponents.tsx`: Temel UI bileşenleri
+- `components/ui/ThemeIcon.tsx`: İkon sistemi
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Bileşenler
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+React Native Paper, aşağıdaki bileşenleri sağlamaktadır:
 
-## Get a fresh project
+- **Card**: Bilgileri gruplamak için kartlar
+- **Button**: Farklı tiplerde butonlar (contained, outlined, text)
+- **TextField**: Giriş alanları
+- **Typography**: Metin bileşenleri ve hiyerarşisi
+- **Checkbox, Radio, Switch**: Form elemanları
+- **Lists**: Liste bileşenleri
+- **Dialog, Modal, Snackbar**: Bildirim bileşenleri
+- **Chip**: Etiket ve seçim bileşenleri
 
-When you're ready, run:
+## İkon Kullanımı
 
-```bash
-npm run reset-project
+İkon kullanımı için `ThemeIcon` bileşeni aşağıdaki kütüphanelerle uyumludur:
+
+- Material Icons
+- Material Community Icons
+- Font Awesome
+- Ionicons
+- ve daha fazlası...
+
+```typescript
+<ThemeIcon name="home" type="material" size={24} color={colors.primary} />
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Dönüşüm Listesi
 
-## Learn more
+Aşağıdaki bileşenler React Native Paper'a taşınmıştır:
 
-To learn more about developing your project with Expo, look at the following resources:
+- [x] Tema sistemi
+- [x] ThemedText bileşeni
+- [x] IconSymbol adaptör bileşeni
+- [x] EmptyState bileşeni
+- [x] ExpenseOverview bileşeni 
+- [x] Tab layout yapısı
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Dönüştürülecek diğer bileşenler:
 
-## Join the community
+- [ ] TransactionsOverview bileşeni
+- [ ] SavingsOverview bileşeni
+- [ ] Expenses ekranları
+- [ ] Savings ekranları
+- [ ] Onboarding ekranı
+- [ ] Form bileşenleri
+- [ ] Dialog bileşenleri
 
-Join our community of developers creating universal apps.
+## Demo Ekranı
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+ThemeDemoScreen bileşeni, React Native Paper entegrasyonunu göstermek için kullanılabilir. Bu bileşen, tipografi, butonlar, kartlar ve diğer UI bileşenlerini sergilemektedir.
+
+## Kaynaklar
+
+- [React Native Paper Dökümantasyonu](https://callstack.github.io/react-native-paper/)
+- [Material Design Rehberi](https://material.io/design)

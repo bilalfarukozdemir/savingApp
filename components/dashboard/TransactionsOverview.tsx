@@ -1,17 +1,29 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { IconSymbol } from '../ui/IconSymbol';
+import { View, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useTheme } from '@/context/ThemeContext';
 import { useFinance } from '@/context/FinanceContext';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { EmptyState } from '../ui/EmptyState';
 import { formatCurrency, formatDate } from '@/utils';
+import { 
+  Card, 
+  Surface, 
+  Button, 
+  Divider 
+} from '@/components/ui/PaperComponents';
+import { 
+  ThemedText, 
+  TitleMedium, 
+  BodyMedium, 
+  BodySmall 
+} from '@/components/ThemedText';
+import { ThemeIcon } from '../ui/ThemeIcon';
 
 export const TransactionsOverview: React.FC = () => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const { theme, isDark } = useTheme();
+  const colors = Colors[theme];
   const router = useRouter();
   
   const { 
@@ -33,10 +45,10 @@ export const TransactionsOverview: React.FC = () => {
   // İşlem tipine göre ikon ve renk belirleme
   const getTransactionIcon = (type: string) => {
     switch(type) {
-      case 'expense': return 'arrow-down';
-      case 'income': return 'arrow-up';
-      case 'transfer': return 'swap-horizontal';
-      default: return 'document-text';
+      case 'expense': return 'arrow-downward';
+      case 'income': return 'arrow-upward';
+      case 'transfer': return 'swap-horiz';
+      default: return 'receipt';
     }
   };
   
@@ -59,150 +71,101 @@ export const TransactionsOverview: React.FC = () => {
   // Veri yok - Boş durum
   if (!hasTransactions) {
     return (
-      <Animated.View 
-        entering={FadeIn.duration(500)} 
-        style={[styles.card, { backgroundColor: colors.card }]}
-      >
-        <EmptyState
-          title="Henüz İşlem Yok"
-          message="Harcama ve tasarruf işlemleriniz burada görüntülenecek."
-          icon="document-text"
-          containerStyle={{ backgroundColor: 'transparent' }}
-        />
-      </Animated.View>
+      <Card style={styles.card}>
+        <View style={{padding: 16}}>
+          <TitleMedium style={styles.header}>İşlemler</TitleMedium>
+          <EmptyState
+            message="Henüz işlem kaydı bulunmuyor."
+            icon="cart.fill"
+          />
+        </View>
+      </Card>
     );
   }
   
-  // Veri var ama ilk kez görüntüleniyor - Eğitim/tanıtım
-  if (showTutorial) {
-    return (
-      <Animated.View 
-        entering={FadeIn.duration(500)} 
-        style={[styles.card, { backgroundColor: colors.card }]}
-      >
-        <View style={styles.tutorialContainer}>
-          <IconSymbol name="lightbulb" size={32} color={colors.primary} style={styles.tutorialIcon} />
-          <Text style={[styles.tutorialTitle, { color: colors.text }]}>İşlem Geçmişiniz</Text>
-          <Text style={[styles.tutorialText, { color: colors.textMuted }]}>
-            Burada tüm finansal işlemlerinizi kronolojik olarak görebilirsiniz.
-            Harcamalar, gelirler ve tasarruf işlemleri burada listelenir.
-          </Text>
+  return (
+    <Card style={styles.card}>
+      <Animated.View entering={FadeIn.duration(500)}>
+        <View style={styles.headerRow}>
+          <TitleMedium style={styles.header}>Son İşlemler</TitleMedium>
+          <Button 
+            mode="text" 
+            onPress={viewAllTransactions}
+            style={styles.viewAllButton}
+          >
+            Tümünü Gör
+          </Button>
         </View>
         
-        <Text style={[styles.title, { color: colors.text }]}>Son İşlemler</Text>
+        <Divider style={styles.divider} />
         
         <View style={styles.transactionsContainer}>
           {latestTransactions.map((transaction, index) => (
             <View key={index} style={styles.transactionItem}>
-              <View style={[styles.iconContainer, { backgroundColor: `${getTransactionColor(transaction.type)}20` }]}>
-                <IconSymbol 
+              <Surface style={[
+                styles.iconContainer, 
+                { backgroundColor: `${getTransactionColor(transaction.type)}20` }
+              ]}>
+                <ThemeIcon 
                   name={getTransactionIcon(transaction.type)} 
                   size={16} 
                   color={getTransactionColor(transaction.type)} 
+                  type="material"
                 />
-              </View>
+              </Surface>
               
               <View style={styles.transactionInfo}>
-                <Text style={[styles.transactionCategory, { color: colors.text }]}>
+                <BodyMedium style={styles.transactionCategory}>
                   {transaction.category}
-                </Text>
-                <Text style={[styles.transactionDate, { color: colors.textMuted }]}>
+                </BodyMedium>
+                <BodySmall style={styles.transactionDate}>
                   {formatDate(transaction.date)}
-                </Text>
+                </BodySmall>
               </View>
               
-              <Text 
+              <BodyMedium 
                 style={[
                   styles.transactionAmount, 
                   { color: getTransactionColor(transaction.type) }
                 ]}
               >
                 {transaction.type === 'expense' ? '-' : '+'}{formatCurrency(transaction.amount)}
-              </Text>
+              </BodyMedium>
             </View>
           ))}
         </View>
-        
-        <TouchableOpacity 
-          style={[styles.button, { backgroundColor: colors.primary }]}
-          onPress={viewAllTransactions}
-        >
-          <Text style={styles.buttonText}>Tüm İşlemleri Görüntüle</Text>
-        </TouchableOpacity>
       </Animated.View>
-    );
-  }
-  
-  // Normal görünüm - Veri var ve daha önce görüntülenmiş
-  return (
-    <Animated.View 
-      entering={FadeIn.duration(500)} 
-      style={[styles.card, { backgroundColor: colors.card }]}
-    >
-      <Text style={[styles.title, { color: colors.text }]}>Son İşlemler</Text>
-      
-      <View style={styles.transactionsContainer}>
-        {latestTransactions.map((transaction, index) => (
-          <View key={index} style={styles.transactionItem}>
-            <View style={[styles.iconContainer, { backgroundColor: `${getTransactionColor(transaction.type)}20` }]}>
-              <IconSymbol 
-                name={getTransactionIcon(transaction.type)} 
-                size={16} 
-                color={getTransactionColor(transaction.type)} 
-              />
-            </View>
-            
-            <View style={styles.transactionInfo}>
-              <Text style={[styles.transactionCategory, { color: colors.text }]}>
-                {transaction.category}
-              </Text>
-              <Text style={[styles.transactionDate, { color: colors.textMuted }]}>
-                {formatDate(transaction.date)}
-              </Text>
-            </View>
-            
-            <Text 
-              style={[
-                styles.transactionAmount, 
-                { color: getTransactionColor(transaction.type) }
-              ]}
-            >
-              {transaction.type === 'expense' ? '-' : '+'}{formatCurrency(transaction.amount)}
-            </Text>
-          </View>
-        ))}
-      </View>
-      
-      <TouchableOpacity 
-        style={[styles.button, { backgroundColor: colors.primary }]}
-        onPress={viewAllTransactions}
-      >
-        <Text style={styles.buttonText}>Tüm İşlemleri Görüntüle</Text>
-      </TouchableOpacity>
-    </Animated.View>
+    </Card>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    padding: 16,
     marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginVertical: 8,
+    borderRadius: 12,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  header: {
+    padding: 16,
+    paddingBottom: 0,
+  },
+  viewAllButton: {
+    marginRight: 8,
+  },
+  divider: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
   },
   transactionsContainer: {
-    marginBottom: 16,
+    padding: 16,
+    paddingTop: 8,
   },
   transactionItem: {
     flexDirection: 'row',
@@ -219,52 +182,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    elevation: 1,
   },
   transactionInfo: {
     flex: 1,
   },
   transactionCategory: {
-    fontSize: 14,
-    fontWeight: '500',
     marginBottom: 2,
+    fontWeight: '500',
   },
   transactionDate: {
-    fontSize: 12,
+    opacity: 0.7,
   },
   transactionAmount: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    padding: 12,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  tutorialContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 8,
-  },
-  tutorialIcon: {
-    marginBottom: 12,
-  },
-  tutorialTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  tutorialText: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 20,
-  },
+    fontWeight: '700',
+  }
 }); 

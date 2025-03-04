@@ -108,7 +108,7 @@ interface FinanceContextType {
   getWeeklyExpenseAnalysis: () => Record<string, number>;
   getMonthlyExpenseAnalysis: () => Record<string, number>;
   getYearlyExpenseAnalysis: () => Record<string, number>;
-  getTopSpendingCategories: (count?: number) => Array<{category: string, amount: number}>;
+  getTopSpendingCategories: (count?: number) => {category: string, amount: number}[];
 }
 
 // Context'i oluştur
@@ -253,11 +253,11 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
   
   // En Çok Harcama Yapılan Kategorileri Getir
-  const getTopSpendingCategories = (count: number = 5): Array<{category: string, amount: number}> => {
+  const getTopSpendingCategories = (count: number = 5): {category: string, amount: number}[] => {
     try {
-      return calculationService.getTopSpendingCategories(expenses, count);
-    } catch (err) {
-      setError("En çok harcama yapılan kategoriler hesaplanırken bir hata oluştu");
+      return getTopExpenseCategories(expenses, count);
+    } catch (error) {
+      console.error('Kategori analizi hatası:', error);
       return [];
     }
   };
@@ -293,7 +293,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   // Veri güncellendiğinde analizleri otomatik güncelle
   useEffect(() => {
     refreshData();
-  }, []); // Component mount edildiğinde bir kez çalışır
+  }, [financialState.currentBalance]);
   
   // Expenses veya SavingsGoals değiştiğinde analizleri güncelle
   useEffect(() => {

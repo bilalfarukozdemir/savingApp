@@ -1,14 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { useFinance } from '@/context/FinanceContext';
+import { useTheme } from '@/context/ThemeContext';
+import { ActivityIndicator } from '@/components/ui/PaperComponents';
+import { BodyMedium } from '@/components/ThemedText';
 
 export default function NewExpenseScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const { paperTheme } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { showExpenseModal } = useFinance();
@@ -24,7 +24,6 @@ export default function NewExpenseScreen() {
       style={[
         styles.container, 
         { 
-          backgroundColor: colors.background,
           paddingTop: insets.top,
           paddingBottom: insets.bottom,
           paddingLeft: insets.left,
@@ -38,7 +37,8 @@ export default function NewExpenseScreen() {
           headerShown: false 
         }} 
       />
-      <Text style={[styles.text, { color: colors.text }]}>Yönlendiriliyor...</Text>
+      <ActivityIndicator animating={true} size="large" />
+      <BodyMedium style={styles.text}>Yönlendiriliyor...</BodyMedium>
     </View>
   );
 }
@@ -50,7 +50,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   text: {
-    fontSize: 16,
-    marginBottom: 16
+    marginTop: 16
   }
 }); 

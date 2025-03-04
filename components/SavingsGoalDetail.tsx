@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useFinance } from '@/context/FinanceContext';
 import { formatCurrency, formatDate } from '@/utils';
@@ -35,6 +35,24 @@ const SavingsGoalDetail: React.FC<SavingsGoalDetailProps> = ({
   // Hedef bilgisini al
   const goal = savingsGoals.find(g => g.id === goalId);
   
+  // Hedef işlemleri - useMemo ile sarmalayarak performans iyileştirmesi yapıyoruz
+  const transactions = useMemo(() => {
+    return goal ? getGoalTransactions(goalId) : [];
+  }, [goal, goalId, getGoalTransactions]);
+  
+  const showTransactions = transactions.length > 0;
+  
+  // İşlemleri görünür olarak işaretle (kullanıcının işlem eklediği durumda)
+  React.useEffect(() => {
+    const markSeen = async () => {
+      if (transactions.length > 0) {
+        await markDataAsSeen('transactions');
+      }
+    };
+    
+    markSeen();
+  }, [transactions, markDataAsSeen]);
+  
   // Hedef bulunamadıysa hata mesajı göster
   if (!goal) {
     return (
@@ -54,21 +72,6 @@ const SavingsGoalDetail: React.FC<SavingsGoalDetailProps> = ({
   
   // Tahmini tamamlanma süresi (aylık 500 TL tasarruf varsayımı)
   const estimatedMonths = calculateEstimatedTime(goalId, 500);
-  
-  // Hedef işlemleri
-  const transactions = getGoalTransactions(goalId);
-  const showTransactions = transactions.length > 0;
-  
-  // İşlemleri görünür olarak işaretle (kullanıcının işlem eklediği durumda)
-  React.useEffect(() => {
-    const markSeen = async () => {
-      if (transactions.length > 0) {
-        await markDataAsSeen('transactions');
-      }
-    };
-    
-    markSeen();
-  }, [transactions.length, markDataAsSeen]);
   
   // Hedef rengini belirle
   const goalColor = goal.color || '#4C9AFF';

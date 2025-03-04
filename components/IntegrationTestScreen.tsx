@@ -9,7 +9,7 @@ import { financeManager, calculationService, Expense, SavingsGoal } from '@/util
  */
 const IntegrationTestScreen: React.FC = () => {
   // Test sonuçları için state
-  const [testResults, setTestResults] = useState<Array<{name: string, passed: boolean, message: string}>>([]);
+  const [testResults, setTestResults] = useState<{name: string, passed: boolean, message: string}[]>([]);
   const [testAmount, setTestAmount] = useState('100');
   
   // Testleri temizle

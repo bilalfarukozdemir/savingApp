@@ -1,6 +1,5 @@
 import { SavingsGoal, Transaction, FinancialState } from '../models/types';
 import { generateUniqueId, calculateGoalProgress, calculateRemainingDays } from '../models/utils';
-import { v4 as uuidv4 } from 'uuid';
 
 /**
  * SavingsService - Tasarruf hedeflerini yöneten servis
@@ -38,11 +37,16 @@ export class SavingsService {
   /**
    * Tüm tasarruf hedeflerinin ilerleme durumlarını hesaplar
    */
-  getAllGoalsProgress(): Array<{ goalId: string, progress: number }> {
-    return this.goals.map(goal => ({
-      goalId: goal.id,
-      progress: calculateGoalProgress(goal)
-    }));
+  getAllGoalsProgress(): { goalId: string, progress: number }[] {
+    try {
+      return this.goals.map(goal => ({
+        goalId: goal.id,
+        progress: this.getGoalProgress(goal.id)
+      }));
+    } catch (error) {
+      console.error('Hedef ilerleme hesaplama hatası:', error);
+      return [];
+    }
   }
 
   /**
@@ -276,12 +280,27 @@ export class SavingsService {
   /**
    * Hızlı hedef önerileri (örn. aylık %10 tasarruf)
    */
-  generateSavingsSuggestions(monthlyIncome: number): Array<{ name: string, amount: number, period: string }> {
-    return [
-      { name: 'Temel Tasarruf', amount: monthlyIncome * 0.1, period: 'Aylık' },
-      { name: 'Agresif Tasarruf', amount: monthlyIncome * 0.2, period: 'Aylık' },
-      { name: 'Mini Tasarruf', amount: monthlyIncome * 0.05, period: 'Aylık' }
+  generateSavingsSuggestions(monthlyIncome: number): { name: string, amount: number, period: string }[] {
+    // Gelire göre tasarruf önerileri
+    const suggestions = [
+      {
+        name: 'Acil Durum Fonu',
+        amount: monthlyIncome * 0.1, // Gelirin %10'u
+        period: 'aylık'
+      },
+      {
+        name: 'Tatil Fonu',
+        amount: monthlyIncome * 0.05, // Gelirin %5'i
+        period: 'aylık'
+      },
+      {
+        name: 'Emeklilik Fonu',
+        amount: monthlyIncome * 0.15, // Gelirin %15'i
+        period: 'aylık'
+      }
     ];
+    
+    return suggestions;
   }
 
   /**
@@ -298,29 +317,34 @@ export class SavingsService {
   private recordExpenseTransaction(
     goalId: string, 
     amount: number, 
-    transactionType: TransactionType,
+    transactionType: Transaction['type'],
     description: string = 'Para çekildi'
   ): Transaction | null {
     try {
-      // Güncel timestamp oluştur
-      const timestamp = new Date();
+      if (!goalId || amount <= 0) {
+        return null;
+      }
+      
+      const goal = this.getGoalById(goalId);
+      if (!goal) {
+        return null;
+      }
       
       // Transaction nesnesi oluştur
       const transaction: Transaction = {
-        id: uuidv4(),
-        goalId,
-        type: transactionType,
+        id: generateUniqueId(),
         amount,
+        type: transactionType,
+        category: 'Tasarruf',
         description,
-        timestamp,
+        date: new Date(),
+        relatedGoalId: goalId
       };
       
-      // Transaction'ı kaydet
       this.transactions.push(transaction);
-      
       return transaction;
     } catch (error) {
-      console.error('Transaction kayıt hatası:', error);
+      console.error('Harcama işlemi kaydedilirken hata:', error);
       return null;
     }
   }
@@ -328,29 +352,34 @@ export class SavingsService {
   private recordIncomeTransaction(
     goalId: string, 
     amount: number, 
-    transactionType: TransactionType,
+    transactionType: Transaction['type'],
     description: string = 'Para eklendi'
   ): Transaction | null {
     try {
-      // Güncel timestamp oluştur
-      const timestamp = new Date();
+      if (!goalId || amount <= 0) {
+        return null;
+      }
+      
+      const goal = this.getGoalById(goalId);
+      if (!goal) {
+        return null;
+      }
       
       // Transaction nesnesi oluştur
       const transaction: Transaction = {
-        id: uuidv4(),
-        goalId,
-        type: transactionType,
+        id: generateUniqueId(),
         amount,
+        type: transactionType,
+        category: 'Tasarruf Geliri',
         description,
-        timestamp,
+        date: new Date(),
+        relatedGoalId: goalId
       };
       
-      // Transaction'ı kaydet
       this.transactions.push(transaction);
-      
       return transaction;
     } catch (error) {
-      console.error('Transaction kayıt hatası:', error);
+      console.error('Gelir işlemi kaydedilirken hata:', error);
       return null;
     }
   }

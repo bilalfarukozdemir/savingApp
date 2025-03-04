@@ -1,17 +1,33 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { IconSymbol } from '../ui/IconSymbol';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { useFinance } from '@/context/FinanceContext';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { EmptyState } from '../ui/EmptyState';
 import { formatCurrency } from '@/utils';
+import { ThemeIcon } from '../ui/ThemeIcon';
+import { useTheme } from '@/context/ThemeContext';
+import { TitleLarge, BodyMedium, BodySmall, LabelMedium } from '../ThemedText';
+import { 
+  Card, 
+  Button, 
+  Divider, 
+  Surface, 
+  ProgressBar,
+  CardTitle,
+  CardContent,
+  CardActions
+} from '@/components/ui/PaperComponents';
+import { SavingsGoal } from '@/utils/models/types';
+
+// SavingsGoal tipine icon özelliği ekleme (geçici tip genişletme)
+interface ExtendedSavingsGoal extends SavingsGoal {
+  icon?: string;
+}
 
 export const SavingsOverview: React.FC = () => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const { theme, paperTheme } = useTheme();
   const router = useRouter();
   
   const { 
@@ -35,9 +51,10 @@ export const SavingsOverview: React.FC = () => {
   
   // Toplam ilerleme
   const overallProgress = hasGoals ? calculateOverallSavingsProgress() : 0;
+  const overallProgressDecimal = overallProgress / 100; // ProgressBar 0-1 arasında değer bekliyor
   
   // Hedeflerin sayısına göre ilk 2 hedef
-  const visibleGoals = savingsGoals.slice(0, 2);
+  const visibleGoals = savingsGoals.slice(0, 2) as ExtendedSavingsGoal[];
   
   // Bir tasarruf hedefinin detaylarını görüntüle
   const viewGoalDetails = async (goalId: string) => {
@@ -56,21 +73,23 @@ export const SavingsOverview: React.FC = () => {
     return (
       <Animated.View 
         entering={FadeIn.duration(500)} 
-        style={[styles.card, { backgroundColor: colors.card }]}
       >
-        <EmptyState
-          title="Tasarruf Hedefi Oluştur"
-          message="Finansal hedeflerinize ulaşmak için bir tasarruf hedefi belirleyin."
-          icon="piggy-bank"
-          containerStyle={{ backgroundColor: 'transparent' }}
-        />
-        <TouchableOpacity 
-          style={[styles.button, { backgroundColor: colors.primary }]}
-          onPress={createNewGoal}
-        >
-          <IconSymbol name="plus" size={16} color="#FFFFFF" />
-          <Text style={styles.buttonText}>Hedef Ekle</Text>
-        </TouchableOpacity>
+        <Card style={styles.card}>
+          <EmptyState
+            title="Tasarruf Hedefi Oluştur"
+            message="Finansal hedeflerinize ulaşmak için bir tasarruf hedefi belirleyin."
+            icon="piggy-bank"
+            containerStyle={{ backgroundColor: 'transparent' }}
+          />
+          <Button 
+            mode="contained" 
+            onPress={createNewGoal}
+            icon="plus"
+            style={styles.button}
+          >
+            Hedef Ekle
+          </Button>
+        </Card>
       </Animated.View>
     );
   }
@@ -80,57 +99,58 @@ export const SavingsOverview: React.FC = () => {
     return (
       <Animated.View 
         entering={FadeIn.duration(500)} 
-        style={[styles.card, { backgroundColor: colors.card }]}
       >
-        <View style={styles.tutorialContainer}>
-          <IconSymbol name="lightbulb" size={32} color={colors.primary} style={styles.tutorialIcon} />
-          <Text style={[styles.tutorialTitle, { color: colors.text }]}>Tasarruf Hedefleriniz</Text>
-          <Text style={[styles.tutorialText, { color: colors.textMuted }]}>
-            Burada tüm tasarruf hedeflerinizi ve ilerlemenizi görebilirsiniz. 
-            Hedeflerinize para ekleyebilir ve ilerlemenizi takip edebilirsiniz.
-          </Text>
-        </View>
-        
-        {visibleGoals.map(goal => (
-          <TouchableOpacity 
-            key={goal.id} 
-            style={styles.goalItem}
-            onPress={() => viewGoalDetails(goal.id)}
+        <Card style={styles.card}>
+          <View style={styles.tutorialContainer}>
+            <ThemeIcon name="lightbulb" size={32} color={paperTheme.colors.primary} style={styles.tutorialIcon} />
+            <TitleLarge style={styles.tutorialTitle}>Tasarruf Hedefleriniz</TitleLarge>
+            <BodyMedium style={[styles.tutorialText, { color: paperTheme.colors.onSurfaceVariant }]}>
+              Burada tüm tasarruf hedeflerinizi ve ilerlemenizi görebilirsiniz. 
+              Hedeflerinize para ekleyebilir ve ilerlemenizi takip edebilirsiniz.
+            </BodyMedium>
+          </View>
+          
+          {visibleGoals.map(goal => {
+            const progressDecimal = calculateGoalProgress(goal.id) / 100;
+            return (
+              <Surface 
+                key={goal.id} 
+                style={styles.goalSurface}
+                elevation={0}
+              >
+                <View style={styles.goalItem}>
+                  <View style={[styles.goalIcon, { backgroundColor: goal.color || '#4C9AFF' }]}>
+                    <IconSymbol name={goal.icon || 'target'} size={18} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.goalInfo}>
+                    <BodyMedium style={styles.goalName}>{goal.name}</BodyMedium>
+                    <View style={styles.goalStats}>
+                      <BodySmall style={styles.goalCurrent}>
+                        {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
+                      </BodySmall>
+                      <BodySmall style={styles.goalPercentage}>
+                        %{calculateGoalProgress(goal.id).toFixed(0)}
+                      </BodySmall>
+                    </View>
+                    <ProgressBar 
+                      progress={progressDecimal} 
+                      color={goal.color || paperTheme.colors.primary}
+                      style={styles.goalProgressBar}
+                    />
+                  </View>
+                </View>
+              </Surface>
+            );
+          })}
+          
+          <Button 
+            mode="contained" 
+            onPress={() => viewGoalDetails(visibleGoals[0].id)}
+            style={styles.button}
           >
-            <View style={[styles.goalIcon, { backgroundColor: goal.color || '#4C9AFF' }]}>
-              <IconSymbol name={goal.icon || 'target'} size={18} color="#FFFFFF" />
-            </View>
-            <View style={styles.goalInfo}>
-              <Text style={[styles.goalName, { color: colors.text }]}>{goal.name}</Text>
-              <View style={styles.goalStats}>
-                <Text style={[styles.goalCurrent, { color: colors.text }]}>
-                  {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
-                </Text>
-                <Text style={[styles.goalPercentage, { color: colors.textMuted }]}>
-                  %{calculateGoalProgress(goal.id).toFixed(0)}
-                </Text>
-              </View>
-              <View style={[styles.goalProgressBg, { backgroundColor: colors.border }]}>
-                <View 
-                  style={[
-                    styles.goalProgressBar, 
-                    { 
-                      width: `${calculateGoalProgress(goal.id)}%`, 
-                      backgroundColor: goal.color || '#4C9AFF' 
-                    }
-                  ]} 
-                />
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
-        
-        <TouchableOpacity 
-          style={[styles.button, { backgroundColor: colors.primary }]}
-          onPress={() => viewGoalDetails(visibleGoals[0].id)}
-        >
-          <Text style={styles.buttonText}>Hedefleri Görüntüle</Text>
-        </TouchableOpacity>
+            Hedefleri Görüntüle
+          </Button>
+        </Card>
       </Animated.View>
     );
   }
@@ -139,68 +159,68 @@ export const SavingsOverview: React.FC = () => {
   return (
     <Animated.View 
       entering={FadeIn.duration(500)} 
-      style={[styles.card, { backgroundColor: colors.card }]}
     >
-      <Text style={[styles.title, { color: colors.text }]}>Tasarruf Hedefleri</Text>
-      
-      <View style={styles.overallContainer}>
-        <View style={styles.labelRow}>
-          <Text style={[styles.overallLabel, { color: colors.text }]}>Toplam İlerleme</Text>
-          <Text style={[styles.progressPercentage, { color: colors.text }]}>%{overallProgress.toFixed(1)}</Text>
-        </View>
-        <View style={[styles.progressBg, { backgroundColor: colors.border }]}>
-          <View 
-            style={[
-              styles.progressBar, 
-              { 
-                width: `${overallProgress}%`, 
-                backgroundColor: colors.primary 
-              }
-            ]} 
-          />
-        </View>
-      </View>
-      
-      {visibleGoals.map(goal => (
-        <TouchableOpacity 
-          key={goal.id} 
-          style={styles.goalItem}
-          onPress={() => viewGoalDetails(goal.id)}
-        >
-          <View style={[styles.goalIcon, { backgroundColor: goal.color || '#4C9AFF' }]}>
-            <IconSymbol name={goal.icon || 'target'} size={18} color="#FFFFFF" />
-          </View>
-          <View style={styles.goalInfo}>
-            <Text style={[styles.goalName, { color: colors.text }]}>{goal.name}</Text>
-            <View style={styles.goalStats}>
-              <Text style={[styles.goalCurrent, { color: colors.text }]}>
-                {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
-              </Text>
-              <Text style={[styles.goalPercentage, { color: colors.textMuted }]}>
-                %{calculateGoalProgress(goal.id).toFixed(0)}
-              </Text>
+      <Card style={styles.card}>
+        <CardTitle title="Tasarruf Hedefleri" />
+        <CardContent>
+          <View style={styles.overallContainer}>
+            <View style={styles.labelRow}>
+              <LabelMedium>Toplam İlerleme</LabelMedium>
+              <BodyMedium style={styles.progressPercentage}>%{overallProgress.toFixed(1)}</BodyMedium>
             </View>
-            <View style={[styles.goalProgressBg, { backgroundColor: colors.border }]}>
-              <View 
-                style={[
-                  styles.goalProgressBar, 
-                  { 
-                    width: `${calculateGoalProgress(goal.id)}%`, 
-                    backgroundColor: goal.color || '#4C9AFF' 
-                  }
-                ]} 
-              />
-            </View>
+            <ProgressBar 
+              progress={overallProgressDecimal} 
+              color={paperTheme.colors.primary}
+            />
           </View>
-        </TouchableOpacity>
-      ))}
-      
-      <TouchableOpacity 
-        style={[styles.button, { backgroundColor: colors.primary }]}
-        onPress={() => router.push('/savings')}
-      >
-        <Text style={styles.buttonText}>Tüm Hedefleri Görüntüle</Text>
-      </TouchableOpacity>
+          
+          <Divider style={styles.divider} />
+          
+          {visibleGoals.map(goal => {
+            const progressDecimal = calculateGoalProgress(goal.id) / 100;
+            return (
+              <Surface 
+                key={goal.id} 
+                style={styles.goalSurface}
+                elevation={0}
+                onTouchEnd={() => viewGoalDetails(goal.id)}
+              >
+                <View style={styles.goalItem}>
+                  <View style={[styles.goalIcon, { backgroundColor: goal.color || '#4C9AFF' }]}>
+                    <IconSymbol name={goal.icon || 'target'} size={18} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.goalInfo}>
+                    <BodyMedium style={styles.goalName}>{goal.name}</BodyMedium>
+                    <View style={styles.goalStats}>
+                      <BodySmall style={styles.goalCurrent}>
+                        {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
+                      </BodySmall>
+                      <BodySmall style={styles.goalPercentage}>
+                        %{calculateGoalProgress(goal.id).toFixed(0)}
+                      </BodySmall>
+                    </View>
+                    <ProgressBar 
+                      progress={progressDecimal} 
+                      color={goal.color || paperTheme.colors.primary}
+                      style={styles.goalProgressBar}
+                    />
+                  </View>
+                </View>
+              </Surface>
+            );
+          })}
+        </CardContent>
+        
+        <CardActions>
+          <Button 
+            mode="contained" 
+            onPress={() => router.push('/savings')}
+            style={styles.actionButton}
+          >
+            Tüm Hedefleri Görüntüle
+          </Button>
+        </CardActions>
+      </Card>
     </Animated.View>
   );
 };
@@ -208,19 +228,11 @@ export const SavingsOverview: React.FC = () => {
 const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
-    padding: 16,
     marginHorizontal: 16,
     marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
+  divider: {
+    marginVertical: 16,
   },
   overallContainer: {
     marginBottom: 16,
@@ -230,25 +242,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  overallLabel: {
-    fontSize: 14,
-  },
   progressPercentage: {
-    fontSize: 14,
     fontWeight: 'bold',
   },
-  progressBg: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
+  goalSurface: {
+    borderRadius: 8,
+    marginBottom: 12,
   },
   goalItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    padding: 8,
   },
   goalIcon: {
     width: 36,
@@ -262,7 +266,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   goalName: {
-    fontSize: 16,
     fontWeight: '500',
     marginBottom: 4,
   },
@@ -272,33 +275,20 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   goalCurrent: {
-    fontSize: 14,
+    opacity: 0.8,
   },
   goalPercentage: {
-    fontSize: 14,
     fontWeight: 'bold',
-  },
-  goalProgressBg: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
   },
   goalProgressBar: {
-    height: '100%',
+    height: 6,
+    borderRadius: 3,
   },
   button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    padding: 12,
     marginTop: 8,
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginLeft: 8,
+  actionButton: {
+    flex: 1,
   },
   tutorialContainer: {
     alignItems: 'center',
@@ -309,13 +299,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   tutorialTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'center',
   },
   tutorialText: {
-    fontSize: 14,
     textAlign: 'center',
     marginBottom: 16,
     lineHeight: 20,

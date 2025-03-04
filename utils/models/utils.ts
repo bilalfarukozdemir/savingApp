@@ -218,7 +218,7 @@ export const getExpenseAnalysisByPeriod = (
 export const getTopExpenseCategories = (
   expenses: Expense[], 
   count: number = 5
-): Array<{category: string, amount: number}> => {
+): {category: string, amount: number}[] => {
   const categoryTotals = groupExpensesByCategory(expenses);
   
   // Kategorileri harcama miktarına göre sırala

@@ -1,36 +1,29 @@
-import React, { useState } from 'react';
-import { View, Text, Button, StyleSheet, ScrollView } from 'react-native';
-import ValidationTestScreen from '@/components/ValidationTestScreen';
-import IntegrationTestScreen from '@/components/IntegrationTestScreen';
+import React from 'react';
+import { StyleSheet, View, ScrollView } from 'react-native';
+import { TitleLarge } from '@/components/ThemedText';
+import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import ThemeDemoScreen from '@/components/ThemeDemoScreen';
+import { Button } from '@/components/ui/PaperComponents';
 
 export default function TestsScreen() {
-  const [activeTest, setActiveTest] = useState<'validation' | 'integration'>('validation');
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
-  
+  const { theme, isDark } = useTheme();
+  const colors = Colors[theme];
+
   return (
-    <View style={styles.container}>
-      <View style={[styles.tabBar, { backgroundColor: colors.card }]}>
-        <Button 
-          title="Validasyon Testleri" 
-          onPress={() => setActiveTest('validation')}
-          color={activeTest === 'validation' ? colors.primary : colors.text}
-        />
-        <Button 
-          title="Entegrasyon Testleri" 
-          onPress={() => setActiveTest('integration')}
-          color={activeTest === 'integration' ? colors.primary : colors.text}
-        />
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <TitleLarge style={styles.title}>React Native Paper Test Sayfası</TitleLarge>
       
-      <ScrollView style={styles.content}>
-        {activeTest === 'validation' ? (
-          <ValidationTestScreen />
-        ) : (
-          <IntegrationTestScreen />
-        )}
+      <Button
+        mode="contained"
+        onPress={() => {}}
+        style={styles.button}
+      >
+        React Native Paper Entegre Edildi
+      </Button>
+      
+      <ScrollView style={styles.scrollView}>
+        <ThemeDemoScreen />
       </ScrollView>
     </View>
   );
@@ -40,14 +33,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  tabBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+  title: {
+    padding: 16,
   },
-  content: {
+  button: {
+    margin: 16,
+  },
+  scrollView: {
     flex: 1,
   }
 }); 

@@ -1,6 +1,8 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Provider as PaperProvider } from 'react-native-paper';
+import { getPaperTheme, validateTheme } from '@/constants/PaperTheme';
 
 // Theme type definition
 type ThemeType = 'light' | 'dark';
@@ -10,6 +12,7 @@ interface ThemeContextType {
   theme: ThemeType;
   toggleTheme: () => void;
   isDark: boolean;
+  paperTheme: any; // React Native Paper tema nesnesi
 }
 
 // Create the theme context
@@ -23,6 +26,26 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Initialize with system theme
   const [theme, setTheme] = useState<ThemeType>('light');
   const [isLoaded, setIsLoaded] = useState(false);
+  const [paperTheme, setPaperTheme] = useState(() => getPaperTheme(false));
+
+  // Tema değişikliğini uygula
+  const applyTheme = (newTheme: ThemeType) => {
+    const isDarkMode = newTheme === 'dark';
+    setTheme(newTheme);
+    
+    // React Native Paper temasını güncelle
+    const newPaperTheme = getPaperTheme(isDarkMode);
+    
+    // Tema doğrulaması yap
+    if (!validateTheme(newPaperTheme)) {
+      console.error('Tema doğrulama hatası! Yedek tema kullanılıyor.');
+      // Yedek tema olarak varsayılan tema kullanılabilir
+      setPaperTheme(isDarkMode ? getPaperTheme(true) : getPaperTheme(false));
+      return;
+    }
+    
+    setPaperTheme(newPaperTheme);
+  };
 
   // Load saved theme on mount
   useEffect(() => {
@@ -32,16 +55,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         
         if (savedTheme) {
           // Use saved preference if available
-          setTheme(savedTheme as ThemeType);
+          applyTheme(savedTheme as ThemeType);
         } else {
           // Otherwise use device preference
           const deviceTheme = Appearance.getColorScheme() || 'light';
-          setTheme(deviceTheme as ThemeType);
+          applyTheme(deviceTheme as ThemeType);
         }
       } catch (error) {
         // Default to light theme if error
         console.error('Error loading theme:', error);
-        setTheme('light');
+        applyTheme('light');
       } finally {
         setIsLoaded(true);
       }
@@ -59,7 +82,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const asyncUpdate = async () => {
         const hasUserPreference = await AsyncStorage.getItem(THEME_STORAGE_KEY);
         if (!hasUserPreference && colorScheme) {
-          setTheme(colorScheme as ThemeType);
+          applyTheme(colorScheme as ThemeType);
         }
       };
       
@@ -72,7 +95,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Toggle theme function
   const toggleTheme = async () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
+    applyTheme(newTheme);
     
     // Save user preference
     try {
@@ -82,13 +105,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // React Native Paper ile birleştirilmiş tema sağlayıcı
   return (
     <ThemeContext.Provider value={{ 
       theme, 
       toggleTheme,
-      isDark: theme === 'dark'
+      isDark: theme === 'dark',
+      paperTheme
     }}>
-      {children}
+      <PaperProvider theme={paperTheme}>
+        {children}
+      </PaperProvider>
     </ThemeContext.Provider>
   );
 };

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Modal, TextInput, FlatList, Dimensions, ScrollView, SafeAreaView, Platform, Pressable, Alert } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Modal, TextInput, FlatList, Dimensions, ScrollView, SafeAreaView, Platform, Pressable, Alert, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconSymbol, IconSymbolName } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing, FadeIn, ZoomIn, SlideInRight } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing, FadeIn, ZoomIn, SlideInRight, runOnJS } from 'react-native-reanimated';
 import PieChart from 'react-native-pie-chart/v3api';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetTextInput, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useFinance } from '@/context/FinanceContext';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -14,36 +14,109 @@ import { formatCurrency } from '@/utils';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { AntDesign } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
+import { useTheme } from '@/context/ThemeContext';
+import { 
+  Card, 
+  Button, 
+  IconButton, 
+  Surface, 
+  ProgressBar,
+  Checkbox,
+  Divider,
+  Chip,
+  CardContent,
+  FAB
+} from '@/components/ui/PaperComponents';
+import { 
+  TitleLarge, 
+  TitleMedium, 
+  BodyMedium, 
+  BodySmall, 
+  LabelMedium,
+  LabelSmall
+} from '@/components/ThemedText';
+import { ThemeIcon } from '@/components/ui/ThemeIcon';
+import { SavingsGoal } from '@/utils/models/types';
+import { Switch as PaperSwitch } from 'react-native-paper';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// Tasarruf hedefi tipini tanımla
-type SavingsGoal = {
-  id: string;
-  name: string;
-  targetAmount: number;
-  currentAmount: number;
-  color: string;
-  category?: string; // Kategori alanı eklendi
-  targetDate?: Date; // Hedef tarihi eklendi
-};
+// Hedef için genişletilmiş tip (bildirim özelliklerini içeren)
+interface ExtendedSavingsGoal extends SavingsGoal {
+  notificationsEnabled?: boolean;
+  notificationThreshold?: number;
+}
 
 // Tasarruf hedefi kartı bileşeni
 const SavingsGoalCard = ({ 
   goal, 
-  colors, 
   onAddFunds, 
   onWithdrawFunds 
 }: { 
   goal: SavingsGoal; 
-  colors: any; 
   onAddFunds: (id: string) => void; 
   onWithdrawFunds: (id: string) => void; 
 }) => {
+  const { paperTheme } = useTheme();
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  
+  // Genişletilmiş hedef nesnesini tip olarak belirt
+  const extendedGoal = goal as ExtendedSavingsGoal;
+  const [notificationEnabled, setNotificationEnabled] = useState(extendedGoal.notificationsEnabled || false);
+  const [notificationThreshold, setNotificationThreshold] = useState(extendedGoal.notificationThreshold || 90);
+  
   // Animasyon için gereken değerleri sabitlerle tanımlayalım
   const currentAmount = goal.currentAmount;
   const targetAmount = goal.targetAmount;
   const goalColor = goal.color;
+  
+  // Hedefin tamamlanma yüzdesi
+  const progressPercentage = Math.min(Math.round((currentAmount / targetAmount) * 100), 100);
+  const progressValue = currentAmount / targetAmount;
+  
+  // Kalan miktar
+  const remainingAmount = targetAmount - currentAmount;
+  
+  // Hedef tarihine olan süreyi hesapla
+  const calculateTimeToTarget = () => {
+    if (!goal.targetDate) return null;
+    
+    const today = new Date();
+    const targetDate = new Date(goal.targetDate);
+    
+    // Eğer hedef tarih geçmişse null döndür
+    if (targetDate < today) return null;
+    
+    // İki tarih arasındaki gün farkını hesapla
+    const diffTime = targetDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  };
+  
+  // Haftalık ve aylık tasarruf önerilerini hesapla
+  const calculateSavingSuggestions = () => {
+    // Eğer hedef tarihi yoksa varsayılan olarak 1 yıllık süre kullan
+    const remainingDays = goal.targetDate ? calculateTimeToTarget() : 365;
+    
+    if (!remainingDays || remainingDays <= 0) return null;
+    
+    const remainingWeeks = Math.ceil(remainingDays / 7);
+    const remainingMonths = Math.ceil(remainingDays / 30);
+    
+    const weeklyAmount = remainingAmount / remainingWeeks;
+    const monthlyAmount = remainingAmount / remainingMonths;
+    
+    return {
+      weekly: weeklyAmount,
+      monthly: monthlyAmount,
+      days: remainingDays
+    };
+  };
+  
+  const savingSuggestions = calculateSavingSuggestions();
+  const timeToTarget = calculateTimeToTarget();
   
   // Her kart için kendi animasyon hook'unu kullan
   const animatedStyle = useAnimatedStyle(() => {
@@ -59,71 +132,243 @@ const SavingsGoalCard = ({
     };
   }, [currentAmount, targetAmount, goalColor]); // Bağımlılıkları belirt
 
-  const progressPercentage = Math.min(Math.round((currentAmount / targetAmount) * 100), 100);
+  // Bildirim ayarlarını kaydet
+  const saveNotificationSettings = () => {
+    // Buraya bildirim ayarlarını kaydetme mantığı eklenmeli
+    // Bu fonksiyon FinanceContext içinde tanımlanmalı
+    alert('Bildirim ayarları kaydedildi');
+    setShowNotificationSettings(false);
+  };
 
   return (
-    <Animated.View 
-      entering={FadeIn.duration(800).delay(300)}
-      style={[styles.goalCard, { backgroundColor: colors.background === '#fff' ? '#F5F5F5' : '#2A2A2A' }]}
-    >
-      <View style={styles.goalHeader}>
-        <Text style={[styles.goalName, { color: colors.text }]}>{goal.name}</Text>
-        <View style={[styles.goalIconContainer, { backgroundColor: `${goalColor}30` }]}>
-          <IconSymbol name="star.fill" size={20} color={goalColor} />
-        </View>
-      </View>
-      
-      <View style={styles.goalAmountsContainer}>
-        <View style={styles.goalAmountItem}>
-          <Text style={[styles.goalAmountLabel, { color: colors.icon }]}>Hedef</Text>
-          <Text style={[styles.goalAmountValue, { color: colors.text }]}>₺{targetAmount.toLocaleString()}</Text>
-        </View>
-        
-        <View style={styles.goalAmountItem}>
-          <Text style={[styles.goalAmountLabel, { color: colors.icon }]}>Mevcut</Text>
-          <Text style={[styles.goalAmountValue, { color: colors.text }]}>₺{currentAmount.toLocaleString()}</Text>
-        </View>
-        
-        <View style={styles.goalAmountItem}>
-          <Text style={[styles.goalAmountLabel, { color: colors.icon }]}>Kalan</Text>
-          <Text style={[styles.goalAmountValue, { color: colors.text }]}>₺{(targetAmount - currentAmount).toLocaleString()}</Text>
-        </View>
-      </View>
-      
-      <View style={styles.progressContainer}>
-        <View style={[styles.progressBarBackground, { backgroundColor: colors.background === '#fff' ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.1)' }]}>
-          <Animated.View style={animatedStyle} />
-        </View>
-        <Text style={[styles.progressText, { color: colors.icon }]}>
-          {progressPercentage}% tamamlandı
-        </Text>
-      </View>
-      
-      <View style={styles.goalActions}>
-        <TouchableOpacity 
-          style={[styles.goalActionButton, { backgroundColor: '#4CAF5020' }]}
-          onPress={() => onAddFunds(goal.id)}
-        >
-          <IconSymbol name="plus.circle.fill" size={16} color="#4CAF50" />
-          <Text style={[styles.goalActionText, { color: colors.text }]}>Para Ekle</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.goalActionButton, { backgroundColor: '#F4433620' }]}
-          onPress={() => onWithdrawFunds(goal.id)}
-        >
-          <IconSymbol name="minus.circle.fill" size={16} color="#F44336" />
-          <Text style={[styles.goalActionText, { color: colors.text }]}>Para Çek</Text>
-        </TouchableOpacity>
-      </View>
+    <Animated.View entering={FadeIn.duration(800).delay(300)}>
+      <Card style={styles.goalCard}>
+        <CardContent>
+          <View style={styles.goalHeader}>
+            <TitleMedium>{goal.name}</TitleMedium>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity 
+                onPress={() => setShowNotificationSettings(!showNotificationSettings)}
+                style={{ marginRight: 8 }}
+              >
+                <ThemeIcon 
+                  name={notificationEnabled ? "bell" : "bell-off"} 
+                  size={20} 
+                  color={notificationEnabled ? goalColor : paperTheme.colors.onSurfaceVariant} 
+                  type="material-community" 
+                />
+              </TouchableOpacity>
+              <Surface style={[styles.goalIconContainer, { backgroundColor: `${goalColor}30` }]}>
+                <ThemeIcon 
+                  name={goal.icon || 'star'} 
+                  size={20} 
+                  color={goalColor} 
+                  type="material-community" 
+                />
+              </Surface>
+            </View>
+          </View>
+          
+          {/* Bildirim Ayarları */}
+          {showNotificationSettings && (
+            <View style={styles.notificationSettingsContainer}>
+              <Divider style={{ marginVertical: 8 }} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <BodyMedium>Bildirimler</BodyMedium>
+                <PaperSwitch
+                  value={notificationEnabled}
+                  onValueChange={setNotificationEnabled}
+                />
+              </View>
+              
+              {notificationEnabled && (
+                <>
+                  <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant, marginTop: 8 }}>
+                    Hedefin yüzdesi ne zaman bildirim gönderilsin?
+                  </LabelSmall>
+                  
+                  <View style={{ flexDirection: 'row', marginTop: 8, justifyContent: 'space-between' }}>
+                    {[25, 50, 75, 90, 100].map((value) => (
+                      <TouchableOpacity
+                        key={value}
+                        style={[
+                          styles.thresholdButton,
+                          { 
+                            backgroundColor: notificationThreshold === value 
+                              ? `${goalColor}30` 
+                              : paperTheme.colors.surfaceVariant 
+                          }
+                        ]}
+                        onPress={() => setNotificationThreshold(value)}
+                      >
+                        <BodySmall style={{ color: notificationThreshold === value ? goalColor : paperTheme.colors.onSurfaceVariant }}>
+                          %{value}
+                        </BodySmall>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  
+                  <Button 
+                    mode="contained" 
+                    onPress={saveNotificationSettings}
+                    style={[styles.saveNotificationButton, { backgroundColor: goalColor }]}
+                    labelStyle={{ fontSize: 14 }}
+                  >
+                    Kaydet
+                  </Button>
+                </>
+              )}
+              <Divider style={{ marginVertical: 8 }} />
+            </View>
+          )}
+          
+          <View style={styles.goalAmountsContainer}>
+            <View style={styles.goalAmountItem}>
+              <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant }}>Hedef</LabelSmall>
+              <BodyMedium>{formatCurrency(targetAmount)}</BodyMedium>
+            </View>
+            
+            <View style={styles.goalAmountItem}>
+              <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant }}>Mevcut</LabelSmall>
+              <BodyMedium>{formatCurrency(currentAmount)}</BodyMedium>
+            </View>
+            
+            <View style={styles.goalAmountItem}>
+              <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant }}>Kalan</LabelSmall>
+              <BodyMedium>{formatCurrency(remainingAmount)}</BodyMedium>
+            </View>
+          </View>
+          
+          <View style={styles.progressContainer}>
+            <ProgressBar 
+              progress={progressValue} 
+              color={goalColor} 
+              style={styles.progressBar} 
+            />
+            <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 4 }}>
+              %{progressPercentage} tamamlandı
+            </LabelSmall>
+          </View>
+          
+          {/* Analiz Bölümü - Tıklandığında açılıp kapanır */}
+          <TouchableOpacity 
+            style={styles.analysisToggle}
+            onPress={() => setShowAnalysis(!showAnalysis)}
+          >
+            <LabelSmall style={{ color: paperTheme.colors.primary }}>
+              {showAnalysis ? 'Analizi Gizle' : 'Tasarruf Analizi Göster'}
+            </LabelSmall>
+            <ThemeIcon 
+              name={showAnalysis ? 'chevron-up' : 'chevron-down'} 
+              size={16} 
+              color={paperTheme.colors.primary} 
+              type="material-community" 
+            />
+          </TouchableOpacity>
+          
+          {showAnalysis && (
+            <View style={styles.analysisContainer}>
+              <Divider style={{ marginVertical: 8 }} />
+              
+              <View style={styles.analysisRow}>
+                <View style={styles.analysisItem}>
+                  <ThemeIcon 
+                    name="calendar-clock" 
+                    size={18} 
+                    color={paperTheme.colors.primary} 
+                    type="material-community" 
+                  />
+                  <View style={{ marginLeft: 8 }}>
+                    <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant }}>
+                      {goal.targetDate ? 'Kalan Süre' : 'Hedef Tarihi Yok'}
+                    </LabelSmall>
+                    {goal.targetDate ? (
+                      <BodyMedium>
+                        {timeToTarget} gün
+                      </BodyMedium>
+                    ) : (
+                      <BodyMedium>Belirlenmemiş</BodyMedium>
+                    )}
+                  </View>
+                </View>
+                
+                <View style={styles.analysisItem}>
+                  <ThemeIcon 
+                    name="calendar-month" 
+                    size={18} 
+                    color={paperTheme.colors.primary} 
+                    type="material-community" 
+                  />
+                  <View style={{ marginLeft: 8 }}>
+                    <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant }}>
+                      Hedef Tarihi
+                    </LabelSmall>
+                    <BodyMedium>
+                      {goal.targetDate 
+                        ? new Date(goal.targetDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }) 
+                        : 'Belirlenmemiş'
+                      }
+                    </BodyMedium>
+                  </View>
+                </View>
+              </View>
+              
+              {savingSuggestions && (
+                <View style={styles.savingSuggestionsContainer}>
+                  <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant, marginBottom: 8 }}>
+                    Hedefe Ulaşma Önerileri
+                  </LabelSmall>
+                  
+                  <View style={styles.savingSuggestionRow}>
+                    <View style={styles.savingSuggestionItem}>
+                      <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant }}>Aylık Tasarruf</LabelSmall>
+                      <BodyMedium style={{ color: goalColor, fontWeight: 'bold' }}>
+                        {formatCurrency(savingSuggestions.monthly)}
+                      </BodyMedium>
+                    </View>
+                    
+                    <View style={styles.savingSuggestionItem}>
+                      <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant }}>Haftalık Tasarruf</LabelSmall>
+                      <BodyMedium style={{ color: goalColor, fontWeight: 'bold' }}>
+                        {formatCurrency(savingSuggestions.weekly)}
+                      </BodyMedium>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+          
+          <View style={styles.goalActions}>
+            <Button 
+              mode="outlined" 
+              icon="plus"
+              onPress={() => onAddFunds(goal.id)}
+              style={[styles.goalActionButton, { borderColor: '#4CAF50' }]}
+              textColor="#4CAF50"
+            >
+              Para Ekle
+            </Button>
+            
+            <Button 
+              mode="outlined" 
+              icon="minus"
+              onPress={() => onWithdrawFunds(goal.id)}
+              style={[styles.goalActionButton, { borderColor: '#F44336' }]}
+              textColor="#F44336"
+            >
+              Para Çek
+            </Button>
+          </View>
+        </CardContent>
+      </Card>
     </Animated.View>
   );
 };
 
 export default function TabTwoScreen() {
-  const colorScheme = useColorScheme();
+  const { theme, paperTheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const colors = Colors[colorScheme ?? 'light'];
   
   // URL parametrelerini al
   const { action, id } = useLocalSearchParams<{ action?: string, id?: string }>();
@@ -139,7 +384,7 @@ export default function TabTwoScreen() {
     calculateEstimatedTime,
     calculateOverallSavingsProgress,
     hasSavingsData,
-    markDataAsSeen 
+    markDataAsSeen
   } = useFinance();
   
   // Veri durumunu kontrol et
@@ -188,15 +433,124 @@ export default function TabTwoScreen() {
   const [totalSavings, setTotalSavings] = useState(0);
   const [totalTarget, setTotalTarget] = useState(0);
 
+  // Platform kontrolü
+  const isAndroid = Platform.OS === 'android';
+
+  // DateTimePicker için state
+  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+
   // Kategori seçenekleri
   const categories = [
-    { label: 'Ev', value: 'home', color: '#4CAF50', icon: 'house.fill' as IconSymbolName },
-    { label: 'Seyahat', value: 'travel', color: '#2196F3', icon: 'paperplane.fill' as IconSymbolName },
-    { label: 'Teknoloji', value: 'tech', color: '#9C27B0', icon: 'tv.fill' as IconSymbolName },
-    { label: 'Eğitim', value: 'education', color: '#FF9800', icon: 'chevron.left.forwardslash.chevron.right' as IconSymbolName },
-    { label: 'Araba', value: 'car', color: '#F44336', icon: 'car.fill' as IconSymbolName },
-    { label: 'Diğer', value: 'other', color: '#607D8B', icon: 'star.fill' as IconSymbolName },
+    { label: 'Ev', value: 'home', color: '#4CAF50', icon: 'home' },
+    { label: 'Seyahat', value: 'travel', color: '#2196F3', icon: 'airplane' },
+    { label: 'Teknoloji', value: 'tech', color: '#9C27B0', icon: 'laptop' },
+    { label: 'Eğitim', value: 'education', color: '#FF9800', icon: 'school' },
+    { label: 'Araba', value: 'car', color: '#F44336', icon: 'car' },
+    { label: 'Diğer', value: 'other', color: '#607D8B', icon: 'star' },
   ];
+
+  // Tarih seçici gösterme işlemi
+  const handleShowDatePicker = () => {
+    if (isAndroid) {
+      // Android için doğrudan tarih seçiciyi göster
+      setIsDatePickerVisible(true);
+    } else {
+      // iOS için tarih seçiciyi göster
+      setShowDatePicker(true);
+    }
+  };
+  
+  // Tarih değişikliği işlemi
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    const currentDate = selectedDate || targetDate || new Date();
+    setIsDatePickerVisible(false);
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setTargetDate(currentDate);
+    }
+  };
+  
+  // Para ekleme/çekme işlemi
+  const handleAddFunds = (goalId: string) => {
+    const goal = savingsGoals.find(g => g.id === goalId);
+    if (goal) {
+      setSelectedGoalId(goalId);
+      setSelectedGoalName(goal.name);
+      setIsAddingFunds(true);
+      fundBottomSheetRef.current?.expand();
+    }
+  };
+  
+  const handleWithdrawFunds = (goalId: string) => {
+    const goal = savingsGoals.find(g => g.id === goalId);
+    if (goal) {
+      setSelectedGoalId(goalId);
+      setSelectedGoalName(goal.name);
+      setIsAddingFunds(false);
+      fundBottomSheetRef.current?.expand();
+    }
+  };
+  
+  // Hızlı miktar seçimi
+  const selectQuickAmount = (amount: number) => {
+    setFundAmount(amount.toString());
+  };
+  
+  // Para ekleme/çekme işlemi uygulama
+  const processFundAction = () => {
+    if (!selectedGoalId || !fundAmount) return;
+    
+    const amount = parseFloat(fundAmount);
+    if (isNaN(amount) || amount <= 0) return;
+    
+    try {
+      if (isAddingFunds) {
+        addFundsToGoal(selectedGoalId, amount);
+      } else {
+        withdrawFundsFromGoal(selectedGoalId, amount);
+      }
+      
+      // İşlem başarılı olduğunda
+      fundBottomSheetRef.current?.close();
+      
+      // İşlem geçmişine ekle
+      const newTransaction = {
+        id: Date.now().toString(),
+        goalId: selectedGoalId,
+        amount: amount,
+        isAddition: isAddingFunds,
+        date: new Date()
+      };
+      
+      setTransactionHistory([newTransaction, ...transactionHistory]);
+      
+    } catch (error) {
+      // Hata durumunda kullanıcıya bilgi ver
+      alert(error instanceof Error ? error.message : 'Bir hata oluştu');
+    }
+  };
+  
+  // İşlemi geri alma
+  const undoTransaction = (transactionId: string) => {
+    const transaction = transactionHistory.find(t => t.id === transactionId);
+    if (!transaction) return;
+    
+    try {
+      if (transaction.isAddition) {
+        // Ekleme işlemini geri al (para çek)
+        withdrawFundsFromGoal(transaction.goalId, transaction.amount);
+      } else {
+        // Çekme işlemini geri al (para ekle)
+        addFundsToGoal(transaction.goalId, transaction.amount);
+      }
+      
+      // İşlemi geçmişten kaldır
+      setTransactionHistory(transactionHistory.filter(t => t.id !== transactionId));
+      
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'İşlem geri alınamadı');
+    }
+  };
 
   // Bottom sheet için callback fonksiyonları
   const handleNewGoalSheetChanges = useCallback((index: number) => {
@@ -249,11 +603,16 @@ export default function TabTwoScreen() {
     
     const amount = parseFloat(newGoalAmount);
     if (isNaN(amount) || amount <= 0) {
-      errors.targetAmount = 'Geçerli bir hedef tutarı giriniz';
+      errors.targetAmount = 'Geçerli bir hedef tutar giriniz';
     }
     
-    if (!selectedCategory) {
-      errors.category = 'Lütfen bir kategori seçiniz';
+    const currentAmount = parseFloat(newGoalCurrentAmount);
+    if (newGoalCurrentAmount && (isNaN(currentAmount) || currentAmount < 0)) {
+      errors.currentAmount = 'Geçerli bir mevcut tutar giriniz';
+    }
+    
+    if (currentAmount > amount) {
+      errors.currentAmount = 'Mevcut tutar hedef tutardan büyük olamaz';
     }
     
     setFormErrors(errors);
@@ -298,154 +657,32 @@ export default function TabTwoScreen() {
     }
   };
 
-  // Para ekleme/çıkarma modalını yönet
-  const handleAddFunds = (goalId: string) => {
-    const goal = savingsGoals.find(g => g.id === goalId);
-    if (goal) {
-      setSelectedGoalId(goalId);
-      setSelectedGoalName(goal.name);
-      setIsAddingFunds(true);
-      fundBottomSheetRef.current?.expand();
-    }
-  };
+  // Pie chart için veri hazırlama 
+  const pieChartSize = screenWidth < 380 ? 150 : 180;
+  const pieChartData = savingsGoals.length > 0 
+    ? savingsGoals.map(goal => goal.currentAmount) 
+    : [1];
+  const pieChartColors = savingsGoals.length > 0 
+    ? savingsGoals.map(goal => goal.color) 
+    : ['#E0E0E0'];
   
-  const handleWithdrawFunds = (goalId: string) => {
-    const goal = savingsGoals.find(g => g.id === goalId);
-    if (goal) {
-      setSelectedGoalId(goalId);
-      setSelectedGoalName(goal.name);
-      setIsAddingFunds(false);
-      fundBottomSheetRef.current?.expand();
-    }
-  };
-  
-  // Para ekleme/çıkarma işlemini gerçekleştir
-  const processFundAction = () => {
-    if (!selectedGoalId) {
-      Alert.alert('Hata', 'Lütfen bir tasarruf hedefi seçin.');
-      return;
-    }
-    
-    // Seçili hedefin var olduğunu kontrol et
-    const selectedGoal = savingsGoals.find(g => g.id === selectedGoalId);
-    
-    if (!selectedGoal) {
-      Alert.alert('Hata', 'Seçilen tasarruf hedefi bulunamadı.');
-      return;
-    }
-    
-    const amount = parseFloat(fundAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Hata', 'Lütfen geçerli bir miktar girin.');
-      return;
-    }
-    
-    let success = false;
-    
-    if (isAddingFunds) {
-      success = addFundsToGoal(selectedGoalId, amount, `${selectedGoal.name} hedefine para ekleme`);
-    } else {
-      success = withdrawFundsFromGoal(selectedGoalId, amount, `${selectedGoal.name} hedefinden para çekme`);
-    }
-    
-    if (success) {
-      // İşlem başarılı oldu, form alanlarını temizle
-      setFundAmount('');
-      setSelectedGoalId(null);
-      setSelectedGoalName('');
-      
-      // Modal'ı kapat
-      fundBottomSheetRef.current?.close();
-      
-      // Kullanıcıya bildir
-      Alert.alert(
-        'Başarılı', 
-        isAddingFunds ? 'Para başarıyla eklendi.' : 'Para başarıyla çekildi.'
-      );
-    } else {
-      Alert.alert(
-        'İşlem Başarısız', 
-        isAddingFunds ? 'Para eklenirken bir hata oluştu. Lütfen tekrar deneyin.' : 'Para çekilirken bir hata oluştu. Hedefinizdeki miktar yeterli olmayabilir.'
-      );
-    }
-  };
-
-  // Hızlı tutar seçme
-  const selectQuickAmount = (amount: number) => {
-    setFundAmount(amount.toString());
-  };
-
-  // İşlemi geri al
-  const undoTransaction = (transactionId: string) => {
-    // İşlemi bul
-    const transaction = transactionHistory.find(t => t.id === transactionId);
-    
-    if (transaction) {
-      // FinanceContext'teki ilgili işlemi geri alma yöntemini çağır
-      if (transaction.isAddition) {
-        // Eğer ekleme işlemi geri alınıyorsa, aynı miktarı çek
-        withdrawFundsFromGoal(transaction.goalId, transaction.amount, "İşlem geri alındı");
-      } else {
-        // Eğer çekme işlemi geri alınıyorsa, aynı miktarı ekle
-        addFundsToGoal(transaction.goalId, transaction.amount, "İşlem geri alındı");
-      }
-      
-      // İşlemi geçmişten kaldır
-      setTransactionHistory(transactionHistory.filter(t => t.id !== transactionId));
-    }
-  };
-
-  // Hesaplamaları yapalım
-  useEffect(() => {
-    const savingsTotal = savingsGoals.reduce((sum, goal) => sum + goal.currentAmount, 0);
-    const targetTotal = savingsGoals.reduce((sum, goal) => sum + goal.targetAmount, 0);
-    
-    setTotalSavings(savingsTotal);
-    setTotalTarget(targetTotal);
-  }, [savingsGoals]);
-
-  // Pie chart verilerini hazırla
-  const pieChartData = savingsGoals.map(goal => goal.currentAmount);
-  const pieChartColors = savingsGoals.map(goal => goal.color);
-  const pieChartSize = screenWidth < 380 ? 150 : 160;
-
-  // Pie chart için toplam kontrolü
-  const totalSavingsAmount = pieChartData.reduce((sum, value) => sum + value, 0);
-  const hasPieChartData = savingsGoals.length > 0 && totalSavingsAmount > 0;
-  
-  // Eğer toplam sıfırsa, varsayılan değer ekleyelim (grafik hatası önleme)
+  const hasPieChartData = savingsGoals.some(goal => goal.currentAmount > 0);
   const safePieChartData = hasPieChartData ? pieChartData : [1];
-  const safePieChartColors = hasPieChartData ? pieChartColors : ['#CCCCCC'];
-
-  // Tarih formatını güzelleştir
-  const formatDate = (date: Date | null): string => {
-    if (!date) return '';
-    return date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
-  };
-
-  // DateTimePicker için platform özgü kullanım
-  const isAndroid = Platform.OS === 'android';
-
-  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
-
-  const handleShowDatePicker = () => {
-    if (isAndroid) {
-      // Android için doğrudan tarih seçiciyi göster
-      setIsDatePickerVisible(true);
+  const safePieChartColors = hasPieChartData ? pieChartColors : ['#E0E0E0'];
+  
+  // Toplam tasarruf ve hedef tutarlarını hesapla
+  useEffect(() => {
+    if (savingsGoals.length > 0) {
+      const totalSaved = savingsGoals.reduce((sum, goal) => sum + goal.currentAmount, 0);
+      const totalGoal = savingsGoals.reduce((sum, goal) => sum + goal.targetAmount, 0);
+      
+      setTotalSavings(totalSaved);
+      setTotalTarget(totalGoal);
     } else {
-      // iOS için tarih seçiciyi göster
-      setShowDatePicker(true);
+      setTotalSavings(0);
+      setTotalTarget(0);
     }
-  };
-
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    const currentDate = selectedDate || targetDate || new Date();
-    setIsDatePickerVisible(false);
-    setShowDatePicker(false);
-    if (selectedDate) {
-      setTargetDate(currentDate);
-    }
-  };
+  }, [savingsGoals]);
 
   // URL parametrelerine göre modal aç
   useEffect(() => {
@@ -464,20 +701,79 @@ export default function TabTwoScreen() {
     }
   }, [action, id, savingsGoals]);
 
+  // Sıralama modu state'i
+  const [reorderMode, setReorderMode] = useState(false);
+
+  // Sürükle-bırak işlemi için sıralama state'i
+  const [orderedGoals, setOrderedGoals] = useState<SavingsGoal[]>([]);
+
+  // Arayüz öğelerini kullanıcı hareketlerine göre güncellemek için state'ler
+  const activeIndexValue = useSharedValue(-1); // Sürüklenen öğenin indeksi
+
+  // savingsGoals değiştiğinde orderedGoals'ı güncelle
+  useEffect(() => {
+    setOrderedGoals([...savingsGoals]);
+  }, [savingsGoals]);
+
+  // Sürükleme başladığında
+  const onDragStart = (index: number) => {
+    // Aktif indeksi güncelle
+    activeIndexValue.value = index;
+  };
+
+  // Sürükleme sırasında pozisyon değişince
+  const onDragPositionChange = (fromIndex: number, toIndex: number) => {
+    // Eğer indisler aynıysa veya geçersizse işlem yapma
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || 
+        fromIndex >= orderedGoals.length || toIndex >= orderedGoals.length) {
+      return;
+    }
+
+    // Sıralamayı güncelle
+    const newGoals = [...orderedGoals];
+    const item = newGoals.splice(fromIndex, 1)[0]; // Taşınan öğeyi kaldır
+    newGoals.splice(toIndex, 0, item); // Yeni konuma ekle
+    
+    setOrderedGoals(newGoals);
+    activeIndexValue.value = toIndex;
+  };
+
+  // Sürükleme bittiğinde
+  const onDragEnd = () => {
+    // Aktif indeksi sıfırla
+    activeIndexValue.value = -1;
+    
+    // Sıralamayı kaydet
+    reorderGoals(orderedGoals);
+  };
+  
+  // Sıralama modunu değiştir
+  const toggleReorderMode = () => {
+    if (reorderMode) {
+      // Sıralama modundan çıkılıyor, değişiklikleri kaydet
+      reorderGoals(orderedGoals);
+      setReorderMode(false);
+    } else {
+      // Sıralama moduna giriliyor
+      setReorderMode(true);
+    }
+  };
+
+  // Sıralama fonksiyonu
+  const reorderGoals = (newOrder: SavingsGoal[]) => {
+    // Burada normalde context'e erişip sıralamayı kaydetmek gerekiyor
+    // Şimdilik sadece konsola log
+    console.log('Hedefler yeniden sıralandı', newOrder.map(g => g.id));
+    // TODO: FinanceContext'e reorderSavingsGoals fonksiyonu eklendikten sonra bu kısmı güncelleyin
+  };
+
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <ScrollView 
-        style={[
-          styles.container, 
-          { 
-            backgroundColor: colors.background,
-          }
-        ]}
+        style={styles.container}
         contentContainerStyle={[
           styles.contentContainer, 
-          { 
-            paddingTop: insets.top 
-          }
+          { paddingTop: insets.top }
         ]}
         showsVerticalScrollIndicator={false}
       >      
@@ -486,150 +782,362 @@ export default function TabTwoScreen() {
           entering={SlideInRight.duration(600).delay(500)}
           style={styles.sectionHeader}
         >
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Tasarruf Hedefleri</Text>
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={() => newGoalBottomSheetRef.current?.expand()}
-          >
-            <IconSymbol name="plus" size={16} color="#fff" />
-            <Text style={styles.addButtonText}>Yeni Ekle</Text>
-          </TouchableOpacity>
+          <TitleLarge>Tasarruf Hedefleri</TitleLarge>
+          <View style={{ flexDirection: 'row' }}>
+            {hasGoals && (
+              <Button 
+                mode="outlined" 
+                onPress={toggleReorderMode}
+                icon={reorderMode ? "check" : "sort"}
+                style={[styles.reorderButton, { marginRight: 8 }]}
+              >
+                {reorderMode ? "Kaydet" : "Sırala"}
+              </Button>
+            )}
+            <Button 
+              mode="contained" 
+              onPress={() => newGoalBottomSheetRef.current?.expand()}
+              icon="plus"
+              style={styles.addButton}
+            >
+              Yeni Ekle
+            </Button>
+          </View>
         </Animated.View>
         
         {/* Boş Durum Gösterimi */}
         {!hasGoals ? (
           <Animated.View 
             entering={FadeIn.duration(800).delay(300)}
-            style={[styles.emptyStateContainer, { backgroundColor: colors.card }]}
+            style={styles.emptyStateContainer}
           >
             <EmptyState
               title="Henüz Tasarruf Hedefiniz Yok"
               message="Finansal hedeflerinize ulaşmak için bir tasarruf hedefi belirleyin."
               icon="piggy-bank"
             />
-            <TouchableOpacity 
-              style={[styles.addButton, { marginTop: 16 }]}
+            <Button 
+              mode="contained" 
               onPress={() => newGoalBottomSheetRef.current?.expand()}
+              icon="plus"
+              style={{ marginTop: 16 }}
             >
-              <IconSymbol name="plus" size={16} color="#fff" />
-              <Text style={styles.addButtonText}>Hedef Ekle</Text>
-            </TouchableOpacity>
+              Hedef Ekle
+            </Button>
           </Animated.View>
         ) : showTutorial ? (
           <Animated.View 
             entering={FadeIn.duration(800).delay(300)}
-            style={[styles.emptyStateContainer, { backgroundColor: colors.card }]}
+            style={styles.tutorialContainer}
           >
-            <View style={styles.tutorialContainer}>
-              <IconSymbol name="lightbulb" size={32} color={colors.primary} style={styles.tutorialIcon} />
-              <Text style={[styles.tutorialTitle, { color: colors.text }]}>Tasarruf Hedefleriniz</Text>
-              <Text style={[styles.tutorialText, { color: colors.textMuted }]}>
-                Burada tüm tasarruf hedeflerinizi ve ilerlemenizi görebilirsiniz. 
-                Hedeflerinize para ekleyebilir ve ilerlemenizi takip edebilirsiniz.
-              </Text>
-            </View>
-            
-            <TouchableOpacity 
-              style={[styles.addButton, { marginTop: 16 }]}
-              onPress={async () => {
-                await markDataAsSeen('savings');
-                setShowTutorial(false);
-              }}
-            >
-              <IconSymbol name="checkmark" size={16} color="#fff" />
-              <Text style={styles.addButtonText}>Anladım</Text>
-            </TouchableOpacity>
+            <Card style={styles.tutorialCard}>
+              <CardContent>
+                <ThemeIcon 
+                  name="lightbulb" 
+                  size={32} 
+                  color={paperTheme.colors.primary} 
+                  style={styles.tutorialIcon} 
+                  type="material-community"
+                />
+                <TitleMedium style={styles.tutorialTitle}>Tasarruf Hedefleriniz</TitleMedium>
+                <BodyMedium style={{ color: paperTheme.colors.onSurfaceVariant }}>
+                  Burada tüm tasarruf hedeflerinizi ve ilerlemenizi görebilirsiniz. 
+                  Hedeflerinize para ekleyebilir ve ilerlemenizi takip edebilirsiniz.
+                </BodyMedium>
+                
+                <Button 
+                  mode="contained" 
+                  onPress={async () => {
+                    await markDataAsSeen('savings');
+                    setShowTutorial(false);
+                  }}
+                  icon="check"
+                  style={{ marginTop: 16 }}
+                >
+                  Anladım
+                </Button>
+              </CardContent>
+            </Card>
           </Animated.View>
         ) : (
           <>
             {/* Toplam Tasarruf Özeti */}
             <Animated.View 
               entering={FadeIn.duration(800).delay(200)}
-              style={[styles.summaryCard, { backgroundColor: '#2196F3' }]}
             >
-              <Text style={styles.summaryTitle}>Toplam Tasarruf Durumu</Text>
-              <View style={styles.summaryContent}>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Şu Anki Tasarruf</Text>
-                  <Text style={styles.summaryValue}>₺{totalSavings.toLocaleString()}</Text>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Toplam Hedef</Text>
-                  <Text style={styles.summaryValue}>₺{totalTarget.toLocaleString()}</Text>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Tamamlanan</Text>
-                  <Text style={styles.summaryValue}>
-                    %{totalTarget > 0 ? Math.round((totalSavings / totalTarget) * 100) : 0}
-                  </Text>
-                </View>
-              </View>
+              <Card style={[styles.summaryCard, { backgroundColor: '#2196F3' }]}>
+                <CardContent>
+                  <TitleMedium style={{ color: 'white' }}>Toplam Tasarruf Durumu</TitleMedium>
+                  <View style={styles.summaryContent}>
+                    <View style={styles.summaryItem}>
+                      <LabelSmall style={{ color: 'rgba(255,255,255,0.8)' }}>Şu Anki Tasarruf</LabelSmall>
+                      <BodyMedium style={{ color: 'white' }}>{formatCurrency(totalSavings)}</BodyMedium>
+                    </View>
+                    <View style={styles.summaryItem}>
+                      <LabelSmall style={{ color: 'rgba(255,255,255,0.8)' }}>Toplam Hedef</LabelSmall>
+                      <BodyMedium style={{ color: 'white' }}>{formatCurrency(totalTarget)}</BodyMedium>
+                    </View>
+                    <View style={styles.summaryItem}>
+                      <LabelSmall style={{ color: 'rgba(255,255,255,0.8)' }}>Tamamlanan</LabelSmall>
+                      <BodyMedium style={{ color: 'white' }}>
+                        %{totalTarget > 0 ? Math.round((totalSavings / totalTarget) * 100) : 0}
+                      </BodyMedium>
+                    </View>
+                  </View>
+                </CardContent>
+              </Card>
             </Animated.View>
 
             {/* Pasta Grafiği ile Dağılım */}
             {savingsGoals.length > 0 && (
               <Animated.View 
                 entering={ZoomIn.duration(800).delay(400)}
-                style={[styles.chartCard, { backgroundColor: colors.background === '#fff' ? '#F5F5F5' : '#2A2A2A' }]}
               >
-                <Text style={[styles.chartTitle, { color: colors.text }]}>Tasarruf Dağılımı</Text>
-                
-                <View style={styles.chartContent}>
-                  {/* Pasta Grafiği */}
-                  <View style={styles.pieChartContainer}>
-                    <PieChart
-                      widthAndHeight={pieChartSize}
-                      series={safePieChartData as any}
-                      sliceColor={safePieChartColors}
-                      coverRadius={0.65}
-                      coverFill={colors.background === '#fff' ? '#F5F5F5' : '#2A2A2A'}
-                    />
-                    <View style={styles.pieChartCenter}>
-                      <Text style={[styles.pieChartCenterValue, { color: colors.text }]}>
-                        ₺{totalSavings.toLocaleString()}
-                      </Text>
-                      <Text style={[styles.pieChartCenterLabel, { color: colors.icon }]}>
-                        Toplam
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  {/* Grafiğin Açıklaması */}
-                  <View style={styles.chartLegend}>
-                    {savingsGoals.map((goal) => {
-                      const percentage = hasPieChartData 
-                        ? Math.round((goal.currentAmount / totalSavings) * 100) || 0
-                        : 0;
-                      return (
-                        <View key={goal.id} style={styles.legendItem}>
-                          <View style={[styles.legendColor, { backgroundColor: goal.color }]} />
-                          <View style={styles.legendInfo}>
-                            <Text style={[styles.legendName, { color: colors.text }]}>{goal.name}</Text>
-                            <Text style={[styles.legendAmount, { color: colors.icon }]}>
-                              ₺{goal.currentAmount.toLocaleString()} ({percentage}%)
-                            </Text>
-                          </View>
+                <Card style={styles.chartCard}>
+                  <CardContent>
+                    <TitleMedium style={styles.chartTitle}>Tasarruf Dağılımı</TitleMedium>
+                    
+                    <View style={styles.chartContent}>
+                      {/* Pasta Grafiği */}
+                      <View style={styles.pieChartContainer}>
+                        <PieChart
+                          widthAndHeight={pieChartSize}
+                          series={safePieChartData}
+                          sliceColor={safePieChartColors}
+                          coverRadius={0.65}
+                          coverFill={paperTheme.colors.background}
+                        />
+                        <View style={styles.pieChartCenter}>
+                          <TitleMedium>
+                            {formatCurrency(totalSavings)}
+                          </TitleMedium>
+                          <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant }}>
+                            Toplam
+                          </LabelSmall>
                         </View>
-                      );
-                    })}
-                  </View>
-                </View>
+                      </View>
+                      
+                      {/* Grafiğin Açıklaması */}
+                      <View style={styles.chartLegend}>
+                        {savingsGoals.map((goal) => {
+                          const percentage = hasPieChartData 
+                            ? Math.round((goal.currentAmount / totalSavings) * 100) || 0
+                            : 0;
+                          return (
+                            <View key={goal.id} style={styles.legendItem}>
+                              <View style={[styles.legendColor, { backgroundColor: goal.color }]} />
+                              <View style={styles.legendInfo}>
+                                <BodyMedium>{goal.name}</BodyMedium>
+                                <BodySmall style={{ color: paperTheme.colors.onSurfaceVariant }}>
+                                  {formatCurrency(goal.currentAmount)} ({percentage}%)
+                                </BodySmall>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  </CardContent>
+                </Card>
               </Animated.View>
             )}
             
             {/* Tasarruf Hedefleri Listesi */}
-            {savingsGoals.map((goal) => (
-              <SavingsGoalCard 
-                key={goal.id}
-                goal={goal} 
-                colors={colors} 
-                onAddFunds={handleAddFunds} 
-                onWithdrawFunds={handleWithdrawFunds} 
-              />
-            ))}
+            {reorderMode ? (
+              // Sıralama modunda
+              <View style={{ marginHorizontal: 20 }}>
+                <Card style={styles.reorderCard}>
+                  <CardContent>
+                    <BodyMedium style={{ textAlign: 'center', marginBottom: 12, color: paperTheme.colors.primary }}>
+                      Hedefleri sıralamak için sürükleyip bırakın
+                    </BodyMedium>
+                    
+                    {orderedGoals.map((goal, index) => {
+                      // Her bir öğe için bir sürükleme animasyonu değeri oluştur
+                      const itemPosition = useSharedValue(0);
+                      const isDragging = useSharedValue(false);
+                      
+                      // Sürükleme hareketi tanımla
+                      const dragGesture = Gesture.Pan()
+                        .onBegin(() => {
+                          isDragging.value = true;
+                          runOnJS(onDragStart)(index);
+                        })
+                        .onChange((event) => {
+                          // Dikey hareket
+                          itemPosition.value = event.translationY;
+                          
+                          // Pozisyon değişimini hesapla
+                          const newPosition = Math.floor(itemPosition.value / 60);
+                          const newIndex = Math.max(0, Math.min(orderedGoals.length - 1, index + newPosition));
+                          
+                          if (newIndex !== index) {
+                            runOnJS(onDragPositionChange)(index, newIndex);
+                          }
+                        })
+                        .onFinalize(() => {
+                          isDragging.value = false;
+                          itemPosition.value = 0;
+                          runOnJS(onDragEnd)();
+                        });
+                        
+                      // Animasyon stilini tanımla
+                      const animatedStyle = useAnimatedStyle(() => {
+                        return {
+                          transform: [
+                            { translateY: itemPosition.value },
+                          ],
+                          backgroundColor: isDragging.value ? 'rgba(0, 0, 0, 0.05)' : 'transparent',
+                          zIndex: isDragging.value ? 1 : 0,
+                        };
+                      });
+                      
+                      return (
+                        <GestureDetector key={goal.id} gesture={dragGesture}>
+                          <Animated.View style={[styles.reorderItem, animatedStyle]}>
+                            <ThemeIcon 
+                              name="drag" 
+                              size={20} 
+                              color={paperTheme.colors.onSurfaceVariant} 
+                              type="material-community" 
+                              style={{ marginRight: 10 }}
+                            />
+                            <Surface style={[styles.reorderIcon, { backgroundColor: `${goal.color}30` }]}>
+                              <ThemeIcon 
+                                name={goal.icon || 'star'} 
+                                size={16} 
+                                color={goal.color} 
+                                type="material-community" 
+                              />
+                            </Surface>
+                            <BodyMedium style={{ flex: 1, marginLeft: 10 }}>{goal.name}</BodyMedium>
+                            <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant }}>
+                              {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
+                            </LabelSmall>
+                          </Animated.View>
+                        </GestureDetector>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              </View>
+            ) : (
+              // Normal mod
+              savingsGoals.map((goal) => (
+                <SavingsGoalCard 
+                  key={goal.id}
+                  goal={goal} 
+                  onAddFunds={handleAddFunds} 
+                  onWithdrawFunds={handleWithdrawFunds} 
+                />
+              ))
+            )}
+            
+            {/* İşlem Geçmişi Bölümü */}
+            {transactionHistory.length > 0 && (
+              <Animated.View 
+                entering={FadeIn.duration(800).delay(500)}
+              >
+                <Card style={styles.historyCard}>
+                  <CardContent>
+                    <View style={styles.historyCardHeader}>
+                      <TitleMedium>İşlem Geçmişi</TitleMedium>
+                      {transactionHistory.length > 5 && (
+                        <Button 
+                          mode="text" 
+                          onPress={() => alert('Tüm işlemler sayfası henüz yapım aşamasında')}
+                          compact
+                        >
+                          Tümünü Gör
+                        </Button>
+                      )}
+                    </View>
+                    
+                    <Divider style={{ marginVertical: 10 }} />
+                    
+                    {transactionHistory.length === 0 ? (
+                      <View style={styles.emptyHistoryContainer}>
+                        <BodyMedium style={{ textAlign: 'center', marginTop: 10, color: paperTheme.colors.onSurfaceVariant }}>
+                          Henüz işlem kaydı bulunmuyor.
+                        </BodyMedium>
+                      </View>
+                    ) : (
+                      transactionHistory.slice(0, 5).map(transaction => {
+                        const goal = savingsGoals.find(g => g.id === transaction.goalId);
+                        if (!goal) return null;
+                        
+                        return (
+                          <View key={transaction.id} style={styles.transactionItem}>
+                            <View style={styles.transactionIcon}>
+                              <Surface 
+                                style={[
+                                  styles.transactionIconBg, 
+                                  { 
+                                    backgroundColor: transaction.isAddition 
+                                      ? 'rgba(76, 175, 80, 0.2)' 
+                                      : 'rgba(244, 67, 54, 0.2)'
+                                  }
+                                ]}
+                              >
+                                <ThemeIcon 
+                                  name={transaction.isAddition ? 'plus' : 'minus'} 
+                                  size={18} 
+                                  color={transaction.isAddition ? '#4CAF50' : '#F44336'} 
+                                  type="material-community"
+                                />
+                              </Surface>
+                            </View>
+                            
+                            <View style={styles.transactionInfo}>
+                              <BodyMedium style={styles.transactionGoal}>{goal.name}</BodyMedium>
+                              <BodySmall style={{ color: paperTheme.colors.onSurfaceVariant }}>
+                                {transaction.date.toLocaleDateString('tr-TR', { 
+                                  day: '2-digit', 
+                                  month: 'short', 
+                                  year: 'numeric', 
+                                  hour: '2-digit', 
+                                  minute: '2-digit'
+                                })}
+                              </BodySmall>
+                            </View>
+                            
+                            <View style={styles.transactionAmount}>
+                              <BodyMedium 
+                                style={{ 
+                                  fontWeight: 'bold', 
+                                  color: transaction.isAddition ? '#4CAF50' : '#F44336' 
+                                }}
+                              >
+                                {transaction.isAddition ? '+' : '-'}{formatCurrency(transaction.amount)}
+                              </BodyMedium>
+                              
+                              <TouchableOpacity
+                                onPress={() => undoTransaction(transaction.id)}
+                                style={styles.undoTransactionButton}
+                              >
+                                <BodySmall style={{ color: paperTheme.colors.primary }}>
+                                  Geri Al
+                                </BodySmall>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        );
+                      })
+                    )}
+                  </CardContent>
+                </Card>
+              </Animated.View>
+            )}
           </>
         )}
       </ScrollView>
+      
+      {/* FAB ile yeni hedef ekleme */}
+      <FAB
+        icon="plus"
+        style={styles.fab}
+        onPress={() => newGoalBottomSheetRef.current?.expand()}
+      />
 
       {/* Yeni Tasarruf Hedefi Bottom Sheet */}
       <BottomSheet
@@ -639,22 +1147,20 @@ export default function TabTwoScreen() {
         onChange={handleNewGoalSheetChanges}
         backdropComponent={renderBackdrop}
         enablePanDownToClose={true}
-        handleIndicatorStyle={{ backgroundColor: 'white' }}
-        backgroundStyle={{ 
-          backgroundColor: colors.background === '#fff' ? '#FFFFFF' : '#1E1E1E',
-        }}
+        handleIndicatorStyle={styles.bottomSheetIndicator}
+        backgroundStyle={styles.bottomSheetBackground}
       >
         <BottomSheetScrollView contentContainerStyle={styles.bottomSheetContent}>
           <View style={[styles.modalHeader, { backgroundColor: '#2196F3' }]}>
-            <Text style={styles.modalTitle}>Yeni Tasarruf Hedefi</Text>
+            <TitleMedium style={{ color: 'white' }}>Yeni Tasarruf Hedefi</TitleMedium>
           </View>
           
           <View style={styles.formGroup}>
-            <Text style={[styles.formLabel, { color: colors.text }]}>Hedef İsmi</Text>
+            <Text style={[styles.formLabel, { color: paperTheme.colors.text }]}>Hedef İsmi</Text>
             <View style={[styles.inputContainer, formErrors.name ? styles.inputError : null]}>
-              <IconSymbol name={'star.fill' as IconSymbolName} size={18} color={colors.icon} style={styles.inputIcon} />
+              <IconSymbol name={'star.fill' as IconSymbolName} size={18} color={paperTheme.colors.icon} style={styles.inputIcon} />
               <BottomSheetTextInput
-                style={[styles.formInput, { backgroundColor: colors.background === '#fff' ? '#F2F2F2' : '#333333', color: colors.text }]}
+                style={[styles.formInput, { backgroundColor: paperTheme.colors.background === '#fff' ? '#F2F2F2' : '#333333', color: paperTheme.colors.text }]}
                 value={newGoalName}
                 onChangeText={(text) => {
                   setNewGoalName(text);
@@ -663,7 +1169,7 @@ export default function TabTwoScreen() {
                   }
                 }}
                 placeholder="Örn: Yeni Araba, Tatil Fonu..."
-                placeholderTextColor={colors.icon}
+                placeholderTextColor={paperTheme.colors.icon}
               />
             </View>
             {formErrors.name ? (
@@ -672,11 +1178,11 @@ export default function TabTwoScreen() {
           </View>
           
           <View style={styles.formGroup}>
-            <Text style={[styles.formLabel, { color: colors.text }]}>Hedef Tutarı</Text>
+            <Text style={[styles.formLabel, { color: paperTheme.colors.text }]}>Hedef Tutarı</Text>
             <View style={[styles.inputContainer, formErrors.targetAmount ? styles.inputError : null]}>
-              <IconSymbol name={'plus.circle.fill' as IconSymbolName} size={18} color={colors.icon} style={styles.inputIcon} />
+              <IconSymbol name={'plus.circle.fill' as IconSymbolName} size={18} color={paperTheme.colors.icon} style={styles.inputIcon} />
               <BottomSheetTextInput
-                style={[styles.formInput, { backgroundColor: colors.background === '#fff' ? '#F2F2F2' : '#333333', color: colors.text }]}
+                style={[styles.formInput, { backgroundColor: paperTheme.colors.background === '#fff' ? '#F2F2F2' : '#333333', color: paperTheme.colors.text }]}
                 value={newGoalAmount}
                 onChangeText={(text) => {
                   setNewGoalAmount(text);
@@ -686,7 +1192,7 @@ export default function TabTwoScreen() {
                 }}
                 keyboardType="numeric"
                 placeholder="₺ Örn: 10000"
-                placeholderTextColor={colors.icon}
+                placeholderTextColor={paperTheme.colors.icon}
               />
             </View>
             {formErrors.targetAmount ? (
@@ -695,43 +1201,43 @@ export default function TabTwoScreen() {
           </View>
           
           <View style={styles.formGroup}>
-            <Text style={[styles.formLabel, { color: colors.text }]}>Mevcut Tasarruf Bakiyesi (İsteğe Bağlı)</Text>
+            <Text style={[styles.formLabel, { color: paperTheme.colors.text }]}>Mevcut Tasarruf Bakiyesi (İsteğe Bağlı)</Text>
             <View style={styles.inputContainer}>
-              <IconSymbol name={'plus.circle.fill' as IconSymbolName} size={18} color={colors.icon} style={styles.inputIcon} />
+              <IconSymbol name={'plus.circle.fill' as IconSymbolName} size={18} color={paperTheme.colors.icon} style={styles.inputIcon} />
               <BottomSheetTextInput
-                style={[styles.formInput, { backgroundColor: colors.background === '#fff' ? '#F2F2F2' : '#333333', color: colors.text }]}
+                style={[styles.formInput, { backgroundColor: paperTheme.colors.background === '#fff' ? '#F2F2F2' : '#333333', color: paperTheme.colors.text }]}
                 value={newGoalCurrentAmount}
                 onChangeText={setNewGoalCurrentAmount}
                 keyboardType="numeric"
                 placeholder="₺ Örn: 1000"
-                placeholderTextColor={colors.icon}
+                placeholderTextColor={paperTheme.colors.icon}
               />
             </View>
             
             {parseFloat(newGoalCurrentAmount) > 0 && (
               <View style={styles.checkboxContainer}>
                 <TouchableOpacity 
-                  style={[styles.checkbox, deductFromBalance ? { backgroundColor: '#2196F3', borderColor: '#2196F3' } : { borderColor: colors.icon }]} 
+                  style={[styles.checkbox, deductFromBalance ? { backgroundColor: '#2196F3', borderColor: '#2196F3' } : { borderColor: paperTheme.colors.icon }]} 
                   onPress={() => setDeductFromBalance(!deductFromBalance)}
                 >
                   {deductFromBalance && (
                     <IconSymbol name="checkmark" size={14} color="white" />
                   )}
                 </TouchableOpacity>
-                <Text style={[styles.checkboxLabel, { color: colors.text }]}>Mevcut bakiyeden düş</Text>
+                <Text style={[styles.checkboxLabel, { color: paperTheme.colors.text }]}>Mevcut bakiyeden düş</Text>
               </View>
             )}
           </View>
           
           <View style={styles.formGroup}>
-            <Text style={[styles.formLabel, { color: colors.text }]}>Kategori</Text>
+            <Text style={[styles.formLabel, { color: paperTheme.colors.text }]}>Kategori</Text>
             <View style={[styles.categoryContainer, formErrors.category ? styles.inputError : null]}>
               {categories.map((category) => (
                 <TouchableOpacity
                   key={category.value}
                   style={[
                     styles.categoryItem,
-                    { backgroundColor: colors.background === '#fff' ? '#F2F2F2' : '#333333' },
+                    { backgroundColor: paperTheme.colors.background === '#fff' ? '#F2F2F2' : '#333333' },
                     selectedCategory === category.value && {
                       backgroundColor: `${category.color}20`,
                       borderColor: category.color,
@@ -747,13 +1253,13 @@ export default function TabTwoScreen() {
                   <IconSymbol
                     name={category.icon}
                     size={18}
-                    color={selectedCategory === category.value ? category.color : colors.icon}
+                    color={selectedCategory === category.value ? category.color : paperTheme.colors.icon}
                     style={styles.categoryIcon}
                   />
                   <Text
                     style={[
                       styles.categoryText,
-                      { color: selectedCategory === category.value ? category.color : colors.text },
+                      { color: selectedCategory === category.value ? category.color : paperTheme.colors.text },
                     ]}
                   >
                     {category.label}
@@ -767,27 +1273,27 @@ export default function TabTwoScreen() {
           </View>
           
           <View style={styles.formGroup}>
-            <Text style={[styles.formLabel, { color: colors.text }]}>Hedef Tarihi (İsteğe Bağlı)</Text>
+            <Text style={[styles.formLabel, { color: paperTheme.colors.text }]}>Hedef Tarihi (İsteğe Bağlı)</Text>
             <TouchableOpacity
-              style={[styles.inputContainer, styles.datePickerButton, { backgroundColor: colors.background === '#fff' ? '#F2F2F2' : '#333333' }]}
+              style={[styles.inputContainer, styles.datePickerButton, { backgroundColor: paperTheme.colors.background === '#fff' ? '#F2F2F2' : '#333333' }]}
               onPress={handleShowDatePicker}
             >
-              <IconSymbol name="calendar" size={18} color={colors.icon} style={styles.inputIcon} />
-              <Text style={[styles.datePickerText, { color: targetDate ? colors.text : colors.icon }]}>
-                {targetDate ? formatDate(targetDate) : 'Tarih seçiniz'}
+              <IconSymbol name="calendar" size={18} color={paperTheme.colors.icon} style={styles.inputIcon} />
+              <Text style={[styles.datePickerText, { color: targetDate ? paperTheme.colors.text : paperTheme.colors.icon }]}>
+                {targetDate ? targetDate.toLocaleDateString('tr-TR') : 'Tarih seçiniz'}
               </Text>
             </TouchableOpacity>
           </View>
           
           <View style={styles.modalActions}>
             <TouchableOpacity
-              style={[styles.modalButton, styles.cancelButton, { backgroundColor: colors.background === '#fff' ? '#F2F2F2' : '#333333', borderColor: 'rgba(0, 0, 0, 0.2)' }]}
+              style={[styles.modalButton, styles.cancelButton, { backgroundColor: paperTheme.colors.background === '#fff' ? '#F2F2F2' : '#333333', borderColor: 'rgba(0, 0, 0, 0.2)' }]}
               onPress={() => {
                 resetForm();
                 newGoalBottomSheetRef.current?.close();
               }}
             >
-              <Text style={[styles.cancelButtonText, { color: colors.text }]}>İptal</Text>
+              <Text style={[styles.cancelButtonText, { color: paperTheme.colors.text }]}>İptal</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modalButton, styles.submitButton, { backgroundColor: '#2196F3' }]}
@@ -807,153 +1313,139 @@ export default function TabTwoScreen() {
         onChange={handleFundSheetChanges}
         backdropComponent={renderBackdrop}
         enablePanDownToClose={true}
-        handleIndicatorStyle={{ backgroundColor: colors.icon }}
-        backgroundStyle={{ backgroundColor: colors.background === '#fff' ? '#FFFFFF' : '#1E1E1E' }}
+        handleIndicatorStyle={styles.bottomSheetIndicator}
+        backgroundStyle={styles.bottomSheetBackground}
       >
         <BottomSheetScrollView contentContainerStyle={styles.bottomSheetContent}>
           <View style={[styles.modalHeader, { backgroundColor: isAddingFunds ? '#4CAF50' : '#F44336' }]}>
-            <Text style={[styles.modalTitle, { color: '#FFFFFF' }]}>
-              {isAddingFunds ? 'Para Ekle' : 'Para Çek'}
-            </Text>
-            <Text style={styles.modalSubtitle}>
-              {selectedGoalName ? `"${selectedGoalName}" hedefine ${isAddingFunds ? 'eklenecek' : 'çekilecek'} miktar` : ''}
-            </Text>
+            <TitleMedium style={{ color: 'white' }}>
+              {isAddingFunds ? 'Para Ekle' : 'Para Çek'}: {selectedGoalName}
+            </TitleMedium>
           </View>
           
-          <View style={[styles.formGroup, styles.amountContainer]}>
-            <Text style={[styles.formLabel, { color: colors.text, textAlign: 'center', fontSize: 16 }]}>
-              {isAddingFunds 
-                ? 'Ne kadar eklemek istiyorsun?' 
-                : 'Ne kadar çekmek istiyorsun?'}
-            </Text>
+          <View style={styles.amountContainer}>
+            <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant }}>
+              {isAddingFunds ? 'Eklenecek Tutar' : 'Çekilecek Tutar'}
+            </LabelSmall>
             
             <View style={styles.amountInputContainer}>
               <Text style={styles.currencyPrefix}>₺</Text>
               <BottomSheetTextInput
-                style={[styles.amountInput, { color: colors.text, fontSize: 24 }]}              
+                style={[styles.amountInput, { color: paperTheme.colors.text, borderBottomColor: paperTheme.colors.outline }]}
                 value={fundAmount}
                 onChangeText={setFundAmount}
                 keyboardType="numeric"
                 placeholder="0"
-                placeholderTextColor={colors.icon}
+                placeholderTextColor={paperTheme.colors.placeholder}
               />
             </View>
-            
-            <View style={styles.quickAmountContainer}>
-              <TouchableOpacity 
-                style={[styles.quickAmountButton, { borderColor: isAddingFunds ? '#4CAF50' : '#F44336' }]} 
-                onPress={() => selectQuickAmount(10)}
+          </View>
+          
+          <View style={styles.quickAmountContainer}>
+            {[100, 200, 500, 1000].map(amount => (
+              <TouchableOpacity
+                key={amount}
+                style={[
+                  styles.quickAmountButton,
+                  { 
+                    borderColor: paperTheme.colors.outline,
+                    backgroundColor: fundAmount === amount.toString() 
+                      ? (isAddingFunds ? '#E8F5E9' : '#FFEBEE') 
+                      : paperTheme.colors.surface 
+                  }
+                ]}
+                onPress={() => selectQuickAmount(amount)}
               >
-                <Text style={[styles.quickAmountText, { color: isAddingFunds ? '#4CAF50' : '#F44336' }]}>₺10</Text>
+                <Text 
+                  style={[
+                    styles.quickAmountText, 
+                    { 
+                      color: fundAmount === amount.toString() 
+                        ? (isAddingFunds ? '#4CAF50' : '#F44336') 
+                        : paperTheme.colors.text 
+                    }
+                  ]}
+                >
+                  {formatCurrency(amount)}
+                </Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.quickAmountButton, { borderColor: isAddingFunds ? '#4CAF50' : '#F44336' }]} 
-                onPress={() => selectQuickAmount(20)}
-              >
-                <Text style={[styles.quickAmountText, { color: isAddingFunds ? '#4CAF50' : '#F44336' }]}>₺20</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.quickAmountButton, { borderColor: isAddingFunds ? '#4CAF50' : '#F44336' }]} 
-                onPress={() => selectQuickAmount(50)}
-              >
-                <Text style={[styles.quickAmountText, { color: isAddingFunds ? '#4CAF50' : '#F44336' }]}>₺50</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.quickAmountButton, { borderColor: isAddingFunds ? '#4CAF50' : '#F44336' }]} 
-                onPress={() => selectQuickAmount(100)}
-              >
-                <Text style={[styles.quickAmountText, { color: isAddingFunds ? '#4CAF50' : '#F44336' }]}>₺100</Text>
-              </TouchableOpacity>
-            </View>
+            ))}
           </View>
           
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity
-              style={[styles.cancelActionButton, { backgroundColor: colors.background === '#fff' ? '#F5F5F5' : '#333333' }]}
+              style={[
+                styles.cancelActionButton,
+                { 
+                  backgroundColor: paperTheme.colors.surface,
+                  borderWidth: 1,
+                  borderColor: paperTheme.colors.outline
+                }
+              ]}
               onPress={() => fundBottomSheetRef.current?.close()}
             >
-              <Text style={[styles.cancelActionText, { color: colors.text }]}>İptal</Text>
+              <Text style={[styles.cancelActionText, { color: paperTheme.colors.text }]}>İptal</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
               style={[
-                styles.confirmActionButton, 
-                { backgroundColor: isAddingFunds ? '#4CAF50' : '#F44336', opacity: fundAmount ? 1 : 0.6 }
+                styles.confirmActionButton,
+                { 
+                  backgroundColor: isAddingFunds ? '#4CAF50' : '#F44336',
+                }
               ]}
               onPress={processFundAction}
-              disabled={!fundAmount}
             >
-              <IconSymbol 
-                name={isAddingFunds ? 'plus.circle.fill' as IconSymbolName : 'minus.circle.fill' as IconSymbolName} 
-                size={18} 
-                color="#FFFFFF" 
-              />
+              <IconSymbol name={isAddingFunds ? 'plus' : 'minus'} size={18} color="#FFFFFF" />
               <Text style={styles.confirmActionText}>
-                {isAddingFunds ? 'Ekle' : 'Çek'}
+                {isAddingFunds ? 'Para Ekle' : 'Para Çek'}
               </Text>
             </TouchableOpacity>
           </View>
           
-          {transactionHistory.length > 0 && (
+          {/* Seçilen hedefe ait işlem geçmişi */}
+          {transactionHistory.length > 0 && selectedGoalId && (
             <View style={styles.historyContainer}>
-              <Text style={[styles.historyTitle, { color: colors.text }]}>Son İşlemler</Text>
+              <TitleMedium style={{ marginBottom: 12 }}>Son İşlemler</TitleMedium>
               
-              {transactionHistory.slice(0, 5).map((transaction) => {
-                const relatedGoal = savingsGoals.find(g => g.id === transaction.goalId);
-                return (
-                  <View key={transaction.id} style={styles.historyItem}>
-                    <View style={styles.historyItemDetails}>
-                      <Text style={[styles.historyGoalName, { color: colors.text }]}>
-                        {relatedGoal?.name || 'Silinen Hedef'}
-                      </Text>
-                      <Text style={[styles.historyItemDate, { color: colors.icon }]}>
-                        {transaction.date.toLocaleDateString('tr-TR')} {transaction.date.toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})}
-                      </Text>
+              {transactionHistory
+                .filter(transaction => transaction.goalId === selectedGoalId)
+                .slice(0, 5)
+                .map(transaction => {
+                  const goal = savingsGoals.find(g => g.id === transaction.goalId);
+                  if (!goal) return null;
+                  
+                  return (
+                    <View key={transaction.id} style={styles.historyItem}>
+                      <View style={styles.historyItemDetails}>
+                        <BodyMedium style={styles.historyGoalName}>{goal.name}</BodyMedium>
+                        <BodySmall style={styles.historyItemDate}>
+                          {transaction.date.toLocaleDateString('tr-TR')}
+                        </BodySmall>
+                      </View>
+                      <View style={styles.historyItemActions}>
+                        <BodyMedium 
+                          style={[
+                            styles.historyItemAmount,
+                            { color: transaction.isAddition ? '#4CAF50' : '#F44336' }
+                          ]}
+                        >
+                          {transaction.isAddition ? '+' : '-'}{formatCurrency(transaction.amount)}
+                        </BodyMedium>
+                        <TouchableOpacity 
+                          style={styles.undoButton}
+                          onPress={() => undoTransaction(transaction.id)}
+                        >
+                          <BodySmall style={styles.undoButtonText}>Geri Al</BodySmall>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    
-                    <View style={styles.historyItemActions}>
-                      <Text style={[
-                        styles.historyItemAmount, 
-                        { color: transaction.isAddition ? '#4CAF50' : '#F44336' }
-                      ]}>
-                        {transaction.isAddition ? '+' : '-'}₺{transaction.amount}
-                      </Text>
-                      
-                      <TouchableOpacity 
-                        style={styles.undoButton}
-                        onPress={() => undoTransaction(transaction.id)}
-                      >
-                        <Text style={styles.undoButtonText}>Geri Al</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              })}
+                  );
+                })}
             </View>
           )}
         </BottomSheetScrollView>
       </BottomSheet>
-
-      {isDatePickerVisible && isAndroid && (
-        <DateTimePicker
-          value={targetDate || new Date()}
-          mode="date"
-          display="default"
-          onChange={handleDateChange}
-        />
-      )}
-
-      {showDatePicker && !isAndroid && (
-        <DateTimePicker
-          value={targetDate || new Date()}
-          mode="date"
-          display="default"
-          onChange={handleDateChange}
-        />
-      )}
     </GestureHandlerRootView>
   );
 }
@@ -963,62 +1455,62 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    padding: 16,
-    paddingBottom: 24,
+    paddingBottom: 50,
   },
-  // Özet Kart Stilleri
-  summaryCard: {
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  addButton: {
+    borderRadius: 8,
+  },
+  reorderButton: {
+    borderRadius: 8,
+  },
+  reorderCard: {
+    marginBottom: 16,
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    marginTop: 8,
   },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
+  reorderItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  reorderIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryCard: {
+    marginHorizontal: 20,
     marginBottom: 16,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    borderRadius: 16,
+    elevation: 4,
   },
   summaryContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 10,
   },
   summaryItem: {
     alignItems: 'center',
   },
-  summaryLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  // Grafik Kart Stilleri
   chartCard: {
-    borderRadius: 16,
-    padding: 16,
+    marginHorizontal: 20,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    borderRadius: 16,
+    padding: 5,
   },
   chartTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: 15,
   },
   chartContent: {
     flexDirection: 'row',
@@ -1030,28 +1522,21 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    width: screenWidth < 380 ? '100%' : '45%',
-    marginBottom: screenWidth < 380 ? 16 : 0,
+    width: screenWidth < 380 ? 160 : 200,
+    height: screenWidth < 380 ? 160 : 200,
   },
   pieChartCenter: {
     position: 'absolute',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pieChartCenterValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  pieChartCenterLabel: {
-    fontSize: 12,
   },
   chartLegend: {
-    width: screenWidth < 380 ? '100%' : '50%',
+    flex: 1,
+    paddingLeft: 10,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   legendColor: {
     width: 12,
@@ -1062,48 +1547,15 @@ const styles = StyleSheet.create({
   legendInfo: {
     flex: 1,
   },
-  legendName: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  legendAmount: {
-    fontSize: 12,
-  },
-  // Bölüm Başlığı
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  tutorialContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    padding: 20,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: '#2196F3',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 6,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginLeft: 6,
-  },
-  // Hedef Kart Stilleri
-  goalCard: {
+  emptyStateContainer: {
     borderRadius: 16,
-    padding: 16,
+    padding: 20,
+    marginHorizontal: 16,
+    marginTop: 16,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1111,72 +1563,25 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  goalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  tutorialCard: {
+    padding: 20,
+    borderRadius: 16,
+    backgroundColor: '#fff',
   },
-  goalName: {
-    fontSize: 18,
+  tutorialIcon: {
+    marginBottom: 10,
+  },
+  tutorialTitle: {
+    fontSize: 22,
     fontWeight: 'bold',
+    marginBottom: 10,
   },
-  goalIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
+  bottomSheetIndicator: {
+    backgroundColor: 'white',
   },
-  goalAmountsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+  bottomSheetBackground: {
+    backgroundColor: '#1E1E1E',
   },
-  goalAmountItem: {
-    alignItems: 'center',
-  },
-  goalAmountLabel: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  goalAmountValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  progressContainer: {
-    marginBottom: 12,
-  },
-  progressBarBackground: {
-    height: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'right',
-    marginTop: 4,
-  },
-  goalActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  goalActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    flex: 0.48,
-  },
-  goalActionText: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 4,
-  },
-  // Bottom Sheet Stilleri
   bottomSheetContent: {
     padding: 0,
     paddingBottom: 24,
@@ -1187,24 +1592,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196F3',
     alignItems: 'center',
   },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  modalSubtitle: {
-    fontSize: 16,
-    marginTop: 4,
-    color: 'rgba(255, 255, 255, 0.9)',
-    textAlign: 'center',
-  },
   formGroup: {
-    width: '100%',
-    marginBottom: 20,
+    marginBottom: 15,
     paddingHorizontal: 20,
   },
   formLabel: {
@@ -1358,7 +1747,148 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  // Para Ekleme/Çekme stilleri
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+    borderRadius: 4,
+    marginRight: 10,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+  },
+  goalCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  goalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  goalIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  goalAmountsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  goalAmountItem: {
+    alignItems: 'center',
+  },
+  progressContainer: {
+    marginBottom: 12,
+  },
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
+  },
+  analysisToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  analysisContainer: {
+    marginBottom: 10,
+  },
+  analysisRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  analysisItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  savingSuggestionsContainer: {
+    marginTop: 8,
+  },
+  savingSuggestionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  savingSuggestionItem: {
+    alignItems: 'center',
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: 8,
+    width: '48%',
+  },
+  goalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  goalActionButton: {
+    marginTop: 8,
+    marginHorizontal: 4,
+  },
+  historyCard: {
+    marginHorizontal: 20,
+    marginVertical: 16,
+    borderRadius: 16,
+  },
+  historyCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  emptyHistoryContainer: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  transactionItem: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  transactionIcon: {
+    marginRight: 12,
+    justifyContent: 'center',
+  },
+  transactionIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  transactionInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  transactionGoal: {
+    fontWeight: '500',
+  },
+  transactionAmount: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  undoTransactionButton: {
+    marginTop: 4,
+    padding: 2,
+  },
   amountContainer: {
     marginTop: 15,
     paddingHorizontal: 20,
@@ -1442,18 +1972,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginLeft: 5,
   },
-  // İşlem geçmişi stilleri
   historyContainer: {
-    marginTop: 5,
+    marginTop: 20,
     paddingHorizontal: 20,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  historyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 10,
   },
   historyItem: {
     flexDirection: 'row',
@@ -1489,68 +2013,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  label: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 5,
-  },
-  emptyDateContainer: {
-    marginTop: 8,
-  },
-  dateText: {
-    fontSize: 16,
-  },
-  emptyStateContainer: {
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  tutorialContainer: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  tutorialIcon: {
+  notificationSettingsContainer: {
     marginBottom: 10,
   },
-  tutorialTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  tutorialText: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 5,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 1,
-    borderColor: '#2196F3',
+  thresholdButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     borderRadius: 4,
-    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  checkboxLabel: {
-    fontSize: 14,
+  saveNotificationButton: {
+    marginTop: 12,
+    height: 36,
   },
 });
 

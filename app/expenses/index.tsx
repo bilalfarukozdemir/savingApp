@@ -1,20 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Dimensions } from 'react-native';
+import { View, StyleSheet, FlatList, SafeAreaView, Dimensions } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { useFinance } from '@/context/FinanceContext';
-import { IconSymbol } from '@/components/ui/IconSymbol';
 import { formatCurrency, formatDate } from '@/utils';
 import { EmptyState } from '@/components/ui/EmptyState';
 import PieChart from 'react-native-pie-chart/v3api';
+import { useTheme } from '@/context/ThemeContext';
+import { 
+  Card, 
+  Button, 
+  Divider, 
+  Surface, 
+  IconButton,
+  CardContent,
+  CardTitle,
+  CardActions
+} from '@/components/ui/PaperComponents';
+import { 
+  ThemedText,
+  LabelSmall,
+  BodyMedium,
+  BodySmall,
+  TitleMedium,
+  TitleLarge,
+  LabelMedium
+} from '@/components/ThemedText';
+import { ThemeIcon } from '@/components/ui/ThemeIcon';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function ExpensesScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const { theme, paperTheme } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   
@@ -63,14 +80,8 @@ export default function ExpensesScreen() {
   return (
     <SafeAreaView 
       style={[
-        styles.container, 
-        { 
-          backgroundColor: colors.background,
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom,
-          paddingLeft: insets.left,
-          paddingRight: insets.right
-        }
+        styles.container,
+        { paddingTop: insets.top }
       ]}
     >
       <Stack.Screen 
@@ -81,19 +92,18 @@ export default function ExpensesScreen() {
       />
       
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
+        <IconButton 
+          icon="arrow-left"
           onPress={() => router.back()}
-        >
-          <IconSymbol name="chevron.left" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Harcamalarım</Text>
-        <TouchableOpacity 
-          style={styles.addButton}
+          size={24}
+        />
+        <TitleLarge>Harcamalarım</TitleLarge>
+        <IconButton 
+          icon="plus"
           onPress={addNewExpense}
-        >
-          <IconSymbol name="plus" size={24} color={colors.primary} />
-        </TouchableOpacity>
+          iconColor={paperTheme.colors.primary}
+          size={24}
+        />
       </View>
       
       {expenses.length === 0 ? (
@@ -103,96 +113,104 @@ export default function ExpensesScreen() {
             message="Harcamalarınızı ekleyerek finansal durumunuzu takip edin."
             icon="receipt"
           />
-          <TouchableOpacity 
-            style={[styles.addExpenseButton, { backgroundColor: colors.primary }]}
+          <Button 
+            mode="contained" 
             onPress={addNewExpense}
+            icon="plus"
+            style={styles.addExpenseButton}
           >
-            <IconSymbol name="plus" size={16} color="#FFFFFF" />
-            <Text style={styles.addExpenseButtonText}>Harcama Ekle</Text>
-          </TouchableOpacity>
+            Harcama Ekle
+          </Button>
         </View>
       ) : (
         <>
           {/* Pie Chart Bölümü */}
-          <View style={[styles.chartCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.chartTitle, { color: colors.text }]}>
-              Harcama Dağılımı
-            </Text>
-            
-            <View style={styles.chartContent}>
-              {/* Pie Chart */}
-              <View style={styles.pieChartContainer}>
-                <PieChart
-                  widthAndHeight={pieChartSize}
-                  series={pieChartData}
-                  sliceColor={pieChartColors}
-                  coverRadius={0.65}
-                  coverFill={colors.card}
-                />
-                <View style={styles.pieChartCenter}>
-                  <Text style={[styles.pieChartCenterValue, { color: colors.text }]}>
-                    {formatCurrency(totalExpense)}
-                  </Text>
-                  <Text style={[styles.pieChartCenterLabel, { color: colors.textMuted }]}>
-                    Toplam
-                  </Text>
+          <Card style={styles.chartCard}>
+            <CardContent>
+              <TitleMedium style={styles.chartTitle}>
+                Harcama Dağılımı
+              </TitleMedium>
+              
+              <View style={styles.chartContent}>
+                {/* Pie Chart */}
+                <View style={styles.pieChartContainer}>
+                  <PieChart
+                    widthAndHeight={pieChartSize}
+                    series={pieChartData}
+                    sliceColor={pieChartColors}
+                    coverRadius={0.65}
+                    coverFill={paperTheme.colors.background}
+                  />
+                  <View style={styles.pieChartCenter}>
+                    <TitleMedium>
+                      {formatCurrency(totalExpense)}
+                    </TitleMedium>
+                    <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant }}>
+                      Toplam
+                    </LabelSmall>
+                  </View>
+                </View>
+                
+                {/* Pie Chart Açıklaması */}
+                <View style={styles.legendContainer}>
+                  {Object.entries(categoryTotals).map(([category, amount], index) => (
+                    <View key={index} style={styles.legendItem}>
+                      <View 
+                        style={[
+                          styles.legendColor, 
+                          { backgroundColor: categoryColors[category] || '#607D8B' }
+                        ]} 
+                      />
+                      <BodyMedium style={styles.legendCategory}>
+                        {category}
+                      </BodyMedium>
+                      <LabelMedium style={{ color: paperTheme.colors.onSurfaceVariant }}>
+                        %{(categoryPercentages[category] || 0).toFixed(1)}
+                      </LabelMedium>
+                      <BodyMedium style={styles.legendAmount}>
+                        {formatCurrency(amount)}
+                      </BodyMedium>
+                    </View>
+                  ))}
                 </View>
               </View>
-              
-              {/* Pie Chart Açıklaması */}
-              <View style={styles.legendContainer}>
-                {Object.entries(categoryTotals).map(([category, amount], index) => (
-                  <View key={index} style={styles.legendItem}>
-                    <View 
-                      style={[
-                        styles.legendColor, 
-                        { backgroundColor: categoryColors[category] || '#607D8B' }
-                      ]} 
-                    />
-                    <Text style={[styles.legendCategory, { color: colors.text }]}>
-                      {category}
-                    </Text>
-                    <Text style={[styles.legendPercentage, { color: colors.textMuted }]}>
-                      %{(categoryPercentages[category] || 0).toFixed(1)}
-                    </Text>
-                    <Text style={[styles.legendAmount, { color: colors.text }]}>
-                      {formatCurrency(amount)}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
+            </CardContent>
+          </Card>
           
           {/* Harcama Listesi */}
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Son Harcamalar</Text>
+          <TitleMedium style={styles.sectionTitle}>Son Harcamalar</TitleMedium>
           
           <FlatList
             data={sortedExpenses}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContainer}
             renderItem={({ item }) => (
-              <View style={[styles.expenseItem, { backgroundColor: colors.card }]}>
-                <View style={[styles.categoryBadge, { backgroundColor: categoryColors[item.category] || '#607D8B' }]}>
-                  <Text style={styles.categoryBadgeText}>{item.category.charAt(0)}</Text>
-                </View>
-                <View style={styles.expenseDetails}>
-                  <View style={styles.expenseHeader}>
-                    <Text style={[styles.expenseCategory, { color: colors.text }]}>{item.category}</Text>
-                    <Text style={[styles.expenseAmount, { color: colors.text }]}>
-                      {formatCurrency(item.amount)}
-                    </Text>
+              <Card style={styles.expenseItem}>
+                <CardContent style={styles.expenseItemContent}>
+                  <Surface style={[
+                    styles.categoryBadge, 
+                    { backgroundColor: categoryColors[item.category] || '#607D8B' }
+                  ]}>
+                    <ThemedText style={styles.categoryBadgeText}>{item.category.charAt(0)}</ThemedText>
+                  </Surface>
+                  <View style={styles.expenseDetails}>
+                    <View style={styles.expenseHeader}>
+                      <BodyMedium style={styles.expenseCategory}>{item.category}</BodyMedium>
+                      <BodyMedium style={styles.expenseAmount}>
+                        {formatCurrency(item.amount)}
+                      </BodyMedium>
+                    </View>
+                    {item.description && (
+                      <BodySmall style={{ color: paperTheme.colors.onSurfaceVariant }}>
+                        {item.description}
+                      </BodySmall>
+                    )}
+                    <BodySmall style={{ color: paperTheme.colors.onSurfaceVariant }}>
+                      {formatDate(item.date)}
+                    </BodySmall>
                   </View>
-                  {item.description && (
-                    <Text style={[styles.expenseDescription, { color: colors.textMuted }]}>
-                      {item.description}
-                    </Text>
-                  )}
-                  <Text style={[styles.expenseDate, { color: colors.textMuted }]}>
-                    {formatDate(item.date)}
-                  </Text>
-                </View>
-              </View>
+                </CardContent>
+              </Card>
             )}
           />
         </>
@@ -211,22 +229,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  addButton: {
-    padding: 8,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
     marginVertical: 12,
     paddingHorizontal: 16,
   },
@@ -235,15 +239,11 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   expenseItem: {
-    flexDirection: 'row',
-    borderRadius: 12,
     marginBottom: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+  },
+  expenseItemContent: {
+    flexDirection: 'row',
+    padding: 8,
   },
   categoryBadge: {
     width: 40,
@@ -267,19 +267,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   expenseCategory: {
-    fontSize: 16,
     fontWeight: '500',
   },
   expenseAmount: {
-    fontSize: 16,
     fontWeight: 'bold',
-  },
-  expenseDescription: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  expenseDate: {
-    fontSize: 12,
   },
   emptyContainer: {
     flex: 1,
@@ -288,35 +279,14 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   addExpenseButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     marginTop: 16,
-  },
-  addExpenseButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginLeft: 8,
   },
   // Pie Chart Stilleri
   chartCard: {
     margin: 16,
     marginBottom: 8,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
   },
   chartTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
     marginBottom: 16,
   },
   chartContent: {
@@ -336,13 +306,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pieChartCenterValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  pieChartCenterLabel: {
-    fontSize: 12,
-  },
   legendContainer: {
     width: screenWidth < 500 ? '100%' : '55%',
   },
@@ -359,14 +322,8 @@ const styles = StyleSheet.create({
   },
   legendCategory: {
     flex: 1,
-    fontSize: 14,
-  },
-  legendPercentage: {
-    fontSize: 14,
-    marginRight: 8,
   },
   legendAmount: {
-    fontSize: 14,
     fontWeight: '500',
     width: 80,
     textAlign: 'right',

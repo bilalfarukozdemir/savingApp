@@ -144,7 +144,7 @@ export class CalculationService {
   /**
    * En çok harcama yapılan kategorileri döndürür
    */
-  getTopSpendingCategories(expenses: Expense[], count: number = 5): Array<{category: string, amount: number}> {
+  getTopSpendingCategories(expenses: Expense[], count: number = 5): {category: string, amount: number}[] {
     return getTopExpenseCategories(expenses, count);
   }
 

@@ -1,10 +1,24 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { useFinance } from '@/context/FinanceContext';
 import { formatCurrency } from '@/utils';
-import { IconSymbol } from './ui/IconSymbol';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useTheme } from '@/context/ThemeContext';
+import {
+  Card,
+  CardContent,
+  CardTitle,
+  Divider,
+  ProgressBar,
+  Surface
+} from '@/components/ui/PaperComponents';
+import {
+  TitleLarge,
+  TitleMedium,
+  BodyMedium,
+  BodySmall,
+  LabelMedium,
+  LabelSmall
+} from '@/components/ThemedText';
 
 // Grafik için renk paleti (kategori renkleri)
 const CATEGORY_COLORS: Record<string, string> = {
@@ -34,11 +48,16 @@ const getCategoryColor = (category: string): string => {
   return `hsl(${hue}, 70%, 60%)`;
 };
 
+// Aylık harcama verileri için tip tanımlama
+interface MonthlyExpense {
+  month: string;
+  amount: number;
+}
+
 const { width } = Dimensions.get('window');
 
 const ExpenseAnalysisScreen: React.FC = () => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const { theme, paperTheme } = useTheme();
   
   const { 
     expenses,
@@ -61,116 +80,169 @@ const ExpenseAnalysisScreen: React.FC = () => {
   const topCategories = getTopSpendingCategories(5);
   
   // Aylık harcama analizi
-  const monthlyExpenses = getMonthlyExpenseAnalysis();
+  const monthlyExpenses = getMonthlyExpenseAnalysis() as MonthlyExpense[];
   
   // Toplam tasarruf ilerleme yüzdesi
   const overallProgress = calculateOverallSavingsProgress();
+  const overallProgressDecimal = overallProgress / 100;
   
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.title, { color: colors.text }]}>Harcama Analizi</Text>
+    <ScrollView style={styles.container}>
+      <TitleLarge style={styles.title}>Harcama Analizi</TitleLarge>
       
       {/* Özet Bilgiler */}
       <View style={styles.summaryContainer}>
-        <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
-          <Text style={[styles.summaryLabel, { color: colors.text }]}>Toplam Bakiye</Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(summary.balance)}</Text>
-        </View>
+        <Card style={styles.summaryCard}>
+          <CardContent>
+            <LabelMedium>Toplam Bakiye</LabelMedium>
+            <TitleMedium>{formatCurrency(summary.balance)}</TitleMedium>
+          </CardContent>
+        </Card>
         
-        <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
-          <Text style={[styles.summaryLabel, { color: colors.text }]}>Toplam Harcama</Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(summary.totalExpenses)}</Text>
-        </View>
+        <Card style={styles.summaryCard}>
+          <CardContent>
+            <LabelMedium>Toplam Harcama</LabelMedium>
+            <TitleMedium>{formatCurrency(summary.totalExpenses)}</TitleMedium>
+          </CardContent>
+        </Card>
         
-        <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
-          <Text style={[styles.summaryLabel, { color: colors.text }]}>Tasarruf Oranı</Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>%{summary.savingsPercentage.toFixed(1)}</Text>
-        </View>
+        <Card style={styles.summaryCard}>
+          <CardContent>
+            <LabelMedium>Tasarruf Oranı</LabelMedium>
+            <TitleMedium>%{summary.savingsPercentage.toFixed(1)}</TitleMedium>
+          </CardContent>
+        </Card>
       </View>
       
       {/* Harcama Dağılımı */}
-      <View style={[styles.sectionContainer, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Harcama Dağılımı</Text>
-        
-        {/* Pasta grafiği yerine basit daireler */}
-        <View style={styles.pieChartContainer}>
-          {topCategories.map((category, index) => (
-            <View 
-              key={category.category} 
-              style={[
-                styles.pieSlice, 
-                { 
-                  backgroundColor: getCategoryColor(category.category),
-                  width: 40 + (categoryPercentages[category.category] * 0.8),
-                  height: 40 + (categoryPercentages[category.category] * 0.8),
-                  left: 30 + (index * 50),
-                  zIndex: 10 - index
-                }
-              ]} 
-            />
-          ))}
-        </View>
-      </View>
+      <Card style={styles.sectionContainer}>
+        <CardContent>
+          <TitleMedium style={styles.sectionTitle}>Harcama Dağılımı</TitleMedium>
+          
+          {/* Pasta grafiği yerine basit daireler */}
+          <View style={styles.pieChartContainer}>
+            {topCategories.map((category, index) => (
+              <View 
+                key={category.category} 
+                style={[
+                  styles.pieSlice, 
+                  { 
+                    backgroundColor: getCategoryColor(category.category),
+                    width: 40 + (categoryPercentages[category.category] * 0.8),
+                    height: 40 + (categoryPercentages[category.category] * 0.8),
+                    left: 30 + (index * 50),
+                    zIndex: 10 - index
+                  }
+                ]} 
+              />
+            ))}
+          </View>
+        </CardContent>
+      </Card>
       
       {/* Kategori listesi */}
-      <View style={[styles.sectionContainer, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Kategoriler</Text>
-        
-        {topCategories.length === 0 ? (
-          <Text style={[styles.emptyText, { color: colors.text }]}>Henüz harcama kaydı yok</Text>
-        ) : (
-          topCategories.map(({ category, amount }) => (
-            <View key={category} style={styles.categoryItem}>
-              <View style={[styles.categoryDot, { backgroundColor: getCategoryColor(category) }]} />
+      <Card style={styles.sectionContainer}>
+        <CardContent>
+          <TitleMedium style={styles.sectionTitle}>Kategoriler</TitleMedium>
+          
+          {topCategories.length === 0 ? (
+            <BodyMedium style={styles.emptyText}>Henüz harcama kaydı yok</BodyMedium>
+          ) : (
+            topCategories.map(({ category, amount }) => (
+              <View key={category} style={styles.categoryItem}>
+                <View style={[styles.categoryDot, { backgroundColor: getCategoryColor(category) }]} />
+                
+                <BodyMedium style={styles.categoryName}>{category}</BodyMedium>
+                
+                <BodyMedium style={styles.categoryAmount}>
+                  {formatCurrency(amount)}
+                </BodyMedium>
+                
+                <LabelMedium style={styles.categoryPercentage}>
+                  %{categoryPercentages[category]?.toFixed(1) || '0'}
+                </LabelMedium>
+                
+                {/* İlerleme çubuğu */}
+                <View style={styles.progressBarContainer}>
+                  <ProgressBar 
+                    progress={categoryPercentages[category] / 100}
+                    color={getCategoryColor(category)}
+                    style={styles.progressBar}
+                  />
+                </View>
+              </View>
+            ))
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Aylık harcama trendi */}
+      <Card style={styles.sectionContainer}>
+        <CardContent>
+          <TitleMedium style={styles.sectionTitle}>Aylık Harcama Trendi</TitleMedium>
+          
+          {monthlyExpenses.length === 0 ? (
+            <BodyMedium style={styles.emptyText}>Henüz yeterli veri yok</BodyMedium>
+          ) : (
+            <View style={styles.barChartContainer}>
+              {monthlyExpenses.map((monthData: MonthlyExpense) => (
+                <View key={monthData.month} style={styles.barChartItem}>
+                  <View 
+                    style={[
+                      styles.barChart, 
+                      { 
+                        height: Math.max(20, (monthData.amount / summary.totalExpenses) * 150),
+                        backgroundColor: paperTheme.colors.primary,
+                      }
+                    ]} 
+                  />
+                  <LabelSmall style={styles.barChartLabel}>{monthData.month}</LabelSmall>
+                </View>
+              ))}
+            </View>
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Genel tasarruf durumu */}
+      <Card style={styles.sectionContainer}>
+        <CardContent>
+          <TitleMedium style={styles.sectionTitle}>Tasarruf Durumu</TitleMedium>
+          
+          <View style={styles.savingsContainer}>
+            <View style={styles.savingsInfo}>
+              <BodyMedium style={styles.savingsLabel}>Tasarruf İlerlemesi</BodyMedium>
+              <TitleMedium style={styles.savingsPercentage}>%{overallProgress.toFixed(1)}</TitleMedium>
+            </View>
+            
+            <ProgressBar 
+              progress={overallProgressDecimal}
+              color={paperTheme.colors.primary}
+              style={styles.savingsProgressBar}
+            />
+            
+            <View style={styles.savingsStatsContainer}>
+              <View style={styles.savingsStatItem}>
+                <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant }}>
+                  Toplam Harcama
+                </LabelSmall>
+                <BodyMedium>
+                  {formatCurrency(summary.totalExpenses)}
+                </BodyMedium>
+              </View>
               
-              <Text style={[styles.categoryName, { color: colors.text }]}>{category}</Text>
-              
-              <Text style={[styles.categoryAmount, { color: colors.text }]}>
-                {formatCurrency(amount)}
-              </Text>
-              
-              <Text style={[styles.categoryPercentage, { color: colors.text }]}>
-                %{categoryPercentages[category]?.toFixed(1) || '0'}
-              </Text>
-              
-              {/* İlerleme çubuğu */}
-              <View style={styles.progressBarContainer}>
-                <View 
-                  style={[
-                    styles.progressBar, 
-                    { 
-                      width: `${categoryPercentages[category]}%`,
-                      backgroundColor: getCategoryColor(category) 
-                    }
-                  ]} 
-                />
+              <View style={styles.savingsStatItem}>
+                <LabelSmall style={{ color: paperTheme.colors.onSurfaceVariant }}>
+                  Toplam Tasarruf
+                </LabelSmall>
+                <BodyMedium>
+                  {formatCurrency(summary.totalSavings)}
+                </BodyMedium>
               </View>
             </View>
-          ))
-        )}
-      </View>
-      
-      {/* Tasarruf İlerlemesi */}
-      <View style={[styles.sectionContainer, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Toplam Tasarruf İlerlemesi</Text>
-        
-        <View style={styles.savingsContainer}>
-          <View style={styles.progressBarOuterContainer}>
-            <View 
-              style={[
-                styles.progressBarInner, 
-                { 
-                  width: `${overallProgress}%`,
-                  backgroundColor: colors.primary 
-                }
-              ]} 
-            />
           </View>
-          <Text style={[styles.progressText, { color: colors.text }]}>
-            %{overallProgress.toFixed(1)}
-          </Text>
-        </View>
-      </View>
+        </CardContent>
+      </Card>
     </ScrollView>
   );
 };
@@ -181,8 +253,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
     marginBottom: 16,
   },
   summaryContainer: {
@@ -191,110 +261,108 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   summaryCard: {
-    width: '31%',
-    padding: 12,
-    borderRadius: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    width: (width - 40) / 3,
   },
   sectionContainer: {
     marginBottom: 16,
-    padding: 16,
-    borderRadius: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   pieChartContainer: {
-    height: 150,
+    height: 120,
     position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 16,
+    marginBottom: 16,
   },
   pieSlice: {
     position: 'absolute',
     borderRadius: 50,
+    top: 10,
   },
   categoryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    position: 'relative',
+    marginBottom: 16,
   },
   categoryDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    marginRight: 8,
+    position: 'absolute',
+    left: 0,
+    top: 4,
   },
   categoryName: {
-    flex: 2,
-    fontSize: 14,
+    marginLeft: 20,
+    marginBottom: 4,
   },
   categoryAmount: {
-    flex: 1.5,
-    fontSize: 14,
-    textAlign: 'right',
+    marginLeft: 20,
+    marginBottom: 4,
   },
   categoryPercentage: {
-    flex: 0.8,
-    fontSize: 14,
-    textAlign: 'right',
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
   progressBarContainer: {
-    position: 'absolute',
-    bottom: -4,
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: '#eaeaea',
-    borderRadius: 1.5,
+    marginLeft: 20,
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
   },
   progressBar: {
-    height: '100%',
-    borderRadius: 1.5,
-  },
-  savingsContainer: {
-    marginTop: 8,
-  },
-  progressBarOuterContainer: {
-    height: 20,
-    backgroundColor: '#eaeaea',
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressBarInner: {
-    height: '100%',
-  },
-  progressText: {
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: 'bold',
+    height: 6,
+    borderRadius: 3,
   },
   emptyText: {
     textAlign: 'center',
     marginVertical: 20,
-    fontStyle: 'italic',
+    opacity: 0.6,
+  },
+  barChartContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 180,
+    paddingTop: 10,
+  },
+  barChartItem: {
+    alignItems: 'center',
+    width: 30,
+  },
+  barChart: {
+    width: 20,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  barChartLabel: {
+    textAlign: 'center',
+  },
+  savingsContainer: {
+    marginTop: 10,
+  },
+  savingsInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  savingsLabel: {
+    fontWeight: '500',
+  },
+  savingsPercentage: {
+    fontWeight: 'bold',
+  },
+  savingsProgressBar: {
+    height: 8,
+    borderRadius: 4,
+    marginBottom: 16,
+  },
+  savingsStatsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  savingsStatItem: {
+    width: '48%',
   },
 });
 

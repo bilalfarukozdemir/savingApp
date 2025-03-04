@@ -1,15 +1,21 @@
 import React from 'react';
-import { View, Text, StyleSheet, ImageSourcePropType, Image, ViewStyle } from 'react-native';
+import { View, StyleSheet, ImageSourcePropType, Image, ViewStyle, TouchableOpacity } from 'react-native';
 import { IconSymbol } from './IconSymbol';
+import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { Button } from './PaperComponents';
+import { BodyMedium, TitleMedium } from '../ThemedText';
 
 interface EmptyStateProps {
-  title: string;
+  title?: string;
   message: string;
   icon?: string; // İkon adı
   illustration?: ImageSourcePropType; // Opsiyonel resim
   containerStyle?: ViewStyle;
+  action?: {
+    title: string;
+    onPress: () => void;
+  };
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
@@ -18,18 +24,29 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   icon,
   illustration,
   containerStyle,
+  action,
 }) => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const { theme, isDark } = useTheme();
+  const colors = Colors[theme];
 
   return (
-    <View style={[styles.container, containerStyle, { backgroundColor: colors.card }]}>
+    <View style={[styles.container, containerStyle]}>
       {illustration && <Image source={illustration} style={styles.illustration} />}
       
       {icon && <IconSymbol name={icon} size={50} color={colors.text} style={styles.icon} />}
       
-      <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-      <Text style={[styles.message, { color: colors.text }]}>{message}</Text>
+      {title && <TitleMedium style={styles.title}>{title}</TitleMedium>}
+      <BodyMedium style={styles.message}>{message}</BodyMedium>
+      
+      {action && (
+        <Button
+          mode="contained"
+          onPress={action.onPress}
+          style={styles.actionButton}
+        >
+          {action.title}
+        </Button>
+      )}
     </View>
   );
 };
@@ -41,7 +58,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 8,
     marginVertical: 10,
-    marginHorizontal: 16,
     minHeight: 180,
   },
   illustration: {
@@ -54,15 +70,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 18,
-    fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'center',
   },
   message: {
-    fontSize: 14,
     textAlign: 'center',
     opacity: 0.7,
     lineHeight: 20,
   },
+  actionButton: {
+    marginTop: 16,
+  }
 }); 

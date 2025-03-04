@@ -1,11 +1,10 @@
-// This file is a fallback for using MaterialIcons on Android and web.
+// This file is an adapter for using ThemeIcon with the existing IconSymbol API.
 
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { SymbolWeight } from 'expo-symbols';
 import React from 'react';
-import { OpaqueColorValue, StyleProp, TextStyle, ViewStyle } from 'react-native';
+import { OpaqueColorValue, StyleProp, ViewStyle } from 'react-native';
+import { ThemeIcon } from './ThemeIcon';
 
-// Add your SFSymbol to MaterialIcons mappings here.
+// SF Symbol to Material Icons mapping
 const MAPPING = {
   // See MaterialIcons here: https://icons.expo.fyi
   // See SF Symbols in the SF Symbols app on Mac.
@@ -24,17 +23,15 @@ const MAPPING = {
   'plus.circle.fill': 'add-circle',
   'chart.bar.fill': 'bar-chart',
   'star.fill': 'star',
-} as Partial<
-  Record<
-    import('expo-symbols').SymbolViewProps['name'],
-    React.ComponentProps<typeof MaterialIcons>['name']
-  >
->;
+  'wrench.fill': 'build',
+  'hammer.fill': 'gavel',
+} as Partial<Record<string, string>>;
 
 export type IconSymbolName = keyof typeof MAPPING;
 
 /**
- * An icon component that uses native SFSymbols on iOS, and MaterialIcons on Android and web. This ensures a consistent look across platforms, and optimal resource usage.
+ * An icon component that uses the new ThemeIcon component while maintaining
+ * backward compatibility with the existing IconSymbol API.
  *
  * Icon `name`s are based on SFSymbols and require manual mapping to MaterialIcons.
  */
@@ -43,12 +40,24 @@ export function IconSymbol({
   size = 24,
   color,
   style,
+  weight, // Ignored, but kept for API compatibility
 }: {
   name: IconSymbolName;
   size?: number;
   color: string | OpaqueColorValue;
   style?: StyleProp<ViewStyle>;
-  weight?: SymbolWeight;
+  weight?: any; // Kept for compatibility
 }) {
-  return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style as StyleProp<TextStyle>} />;
+  // Convert the SF Symbol name to Material Icon name
+  const iconName = MAPPING[name] || 'help-outline';
+  
+  return (
+    <ThemeIcon 
+      name={iconName} 
+      size={size} 
+      color={typeof color === 'string' ? color : color?.toString()} 
+      style={style}
+      type="material" 
+    />
+  );
 }

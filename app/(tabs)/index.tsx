@@ -144,7 +144,7 @@ export default function HomeScreen() {
       damping: 12,
       stiffness: 90,
     });
-  }, []);
+  }, [progressAnimation, balanceAnimation, savingsProgress]);
   
   // Animasyon stilleri
   const progressBarStyle = useAnimatedStyle(() => {
