@@ -6,6 +6,14 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { 
+  useFonts as useInterFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold
+} from '@expo-google-fonts/inter';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { FinanceProvider } from '@/context/FinanceContext';
@@ -62,29 +70,40 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  const [loaded] = useFonts({
+  // SpaceMono yazı tipi için
+  const [spaceMono] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
+  // Inter yazı tipleri için
+  const [interLoaded] = useInterFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+
   useEffect(() => {
-    if (loaded) {
+    if (spaceMono && interLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [spaceMono, interLoaded]);
 
-  if (!loaded) {
+  if (!spaceMono || !interLoaded) {
     return null;
   }
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <FinanceProvider>
-          <RootLayoutNav />
-          <StatusBar style="auto" />
-          <ErrorMessage />
-        </FinanceProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <FinanceProvider>
+            <RootLayoutNav />
+            <StatusBar style="auto" />
+            <ErrorMessage />
+          </FinanceProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

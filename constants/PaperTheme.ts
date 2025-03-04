@@ -6,10 +6,9 @@
 import { MD3LightTheme, MD3DarkTheme, configureFonts } from 'react-native-paper';
 import { Colors } from './Colors';
 
-// Font yapılandırması
+// Font yapılandırması - Modern Inter yazı tipi ailesi
 const fontConfig = {
-  fontFamily: 'SpaceMono',
-  // Diğer font stilleri aşağıda tanımlanabilir
+  fontFamily: 'Inter_400Regular',
 };
 
 // Tipografi hiyerarşisi
@@ -17,6 +16,7 @@ const typographyConfig = configureFonts({
   config: {
     displayLarge: {
       ...fontConfig,
+      fontFamily: 'Inter_400Regular',
       fontWeight: '400',
       fontSize: 57,
       letterSpacing: 0,
@@ -24,6 +24,7 @@ const typographyConfig = configureFonts({
     },
     displayMedium: {
       ...fontConfig,
+      fontFamily: 'Inter_400Regular',
       fontWeight: '400',
       fontSize: 45,
       letterSpacing: 0,
@@ -31,6 +32,7 @@ const typographyConfig = configureFonts({
     },
     displaySmall: {
       ...fontConfig,
+      fontFamily: 'Inter_400Regular',
       fontWeight: '400',
       fontSize: 36,
       letterSpacing: 0,
@@ -38,6 +40,7 @@ const typographyConfig = configureFonts({
     },
     headlineLarge: {
       ...fontConfig,
+      fontFamily: 'Inter_500Medium',
       fontWeight: '400',
       fontSize: 32,
       letterSpacing: 0,
@@ -45,6 +48,7 @@ const typographyConfig = configureFonts({
     },
     headlineMedium: {
       ...fontConfig,
+      fontFamily: 'Inter_500Medium',
       fontWeight: '400',
       fontSize: 28,
       letterSpacing: 0,
@@ -52,6 +56,7 @@ const typographyConfig = configureFonts({
     },
     headlineSmall: {
       ...fontConfig,
+      fontFamily: 'Inter_500Medium',
       fontWeight: '400',
       fontSize: 24,
       letterSpacing: 0,
@@ -59,6 +64,7 @@ const typographyConfig = configureFonts({
     },
     titleLarge: {
       ...fontConfig,
+      fontFamily: 'Inter_600SemiBold',
       fontWeight: '500',
       fontSize: 22,
       letterSpacing: 0,
@@ -66,6 +72,7 @@ const typographyConfig = configureFonts({
     },
     titleMedium: {
       ...fontConfig,
+      fontFamily: 'Inter_600SemiBold',
       fontWeight: '500',
       fontSize: 16,
       letterSpacing: 0.15,
@@ -73,6 +80,7 @@ const typographyConfig = configureFonts({
     },
     titleSmall: {
       ...fontConfig,
+      fontFamily: 'Inter_600SemiBold',
       fontWeight: '500',
       fontSize: 14,
       letterSpacing: 0.1,
@@ -80,6 +88,7 @@ const typographyConfig = configureFonts({
     },
     bodyLarge: {
       ...fontConfig,
+      fontFamily: 'Inter_400Regular',
       fontWeight: '400',
       fontSize: 16,
       letterSpacing: 0.15,
@@ -87,6 +96,7 @@ const typographyConfig = configureFonts({
     },
     bodyMedium: {
       ...fontConfig,
+      fontFamily: 'Inter_400Regular',
       fontWeight: '400',
       fontSize: 14,
       letterSpacing: 0.25,
@@ -94,6 +104,7 @@ const typographyConfig = configureFonts({
     },
     bodySmall: {
       ...fontConfig,
+      fontFamily: 'Inter_400Regular',
       fontWeight: '400',
       fontSize: 12,
       letterSpacing: 0.4,
@@ -101,6 +112,7 @@ const typographyConfig = configureFonts({
     },
     labelLarge: {
       ...fontConfig,
+      fontFamily: 'Inter_500Medium',
       fontWeight: '500',
       fontSize: 14,
       letterSpacing: 0.1,
@@ -108,6 +120,7 @@ const typographyConfig = configureFonts({
     },
     labelMedium: {
       ...fontConfig,
+      fontFamily: 'Inter_500Medium',
       fontWeight: '500',
       fontSize: 12,
       letterSpacing: 0.5,
@@ -115,6 +128,7 @@ const typographyConfig = configureFonts({
     },
     labelSmall: {
       ...fontConfig,
+      fontFamily: 'Inter_500Medium',
       fontWeight: '500',
       fontSize: 11,
       letterSpacing: 0.5,

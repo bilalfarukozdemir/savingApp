@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, FlatList } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { IconSymbol } from '../ui/IconSymbol';
 import { useFinance } from '@/context/FinanceContext';
 import { useRouter } from 'expo-router';
@@ -21,7 +21,6 @@ import {
   CardActions
 } from '@/components/ui/PaperComponents';
 import { SavingsGoal } from '@/utils/models/types';
-import { TouchableOpacity } from 'react-native-gesture-handler';
 
 export const SavingsOverview: React.FC = () => {
   const { theme, isDark, paperTheme } = useTheme();
